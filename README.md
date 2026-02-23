@@ -58,29 +58,49 @@ You need **two sides**:
 1. This local middleware (this repo)
 2. A game-side event emitter mod/script in Cyberpunk 2077
 
-### A) Install Cyber Engine Tweaks (CET)
-To send events from the game process, the easiest approach is CET + Lua script.
+### Cyberpunk checklist (explicit)
+1. Install **Cyber Engine Tweaks (CET)**.
+2. Create this folder:
+   `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/`
+3. Create this exact Lua file:
+   `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/init.lua`
 
-Typical CET mod folder location:
-- `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/`
+Use this starter Lua (hard-coded JSON path):
+```lua
+local events_path = "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl"
 
-Create your mod folder, for example:
-- `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/`
+local function append_event(json_line)
+  local f = io.open(events_path, "a")
+  if f then
+    f:write(json_line .. "\n")
+    f:close()
+  end
+end
 
-Put your Lua script as:
-- `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/init.lua`
+registerForEvent("onInit", function()
+  print("[pishock_bridge] loaded")
+end)
 
-> You wrote “luna” — likely you meant **Lua** (used by CET).
-
-### B) Emit events from game to middleware
-You can emit directly by HTTP from Lua (if you have an HTTP-capable mod helper), or use a file bridge:
-- Game writes JSON lines into a file.
-- `middleware.file_ingest` tails that file and forwards signed events to `/event`.
-
-This repo already includes the file-ingest bridge:
-```bash
-python -m middleware.file_ingest --file <path-to-jsonl> --secret <hmac-secret>
+-- Example periodic test event; replace with your real game hooks.
+registerForEvent("onUpdate", function()
+  -- Emit sparingly in real usage.
+end)
 ```
+
+4. Use setup wizard to validate/create the same JSON file path:
+```bash
+python -m middleware.setup_wizard
+```
+The wizard now creates parent folders and `events.jsonl` if missing.
+
+5. Run file ingest bridge (separate terminal):
+```bash
+python -m middleware.file_ingest \
+  --file "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" \
+  --secret "change-me"
+```
+
+> You wrote “luna” earlier — likely you meant **Lua** (used by CET).
 
 ---
 
@@ -92,17 +112,8 @@ python -m middleware.file_ingest --file <path-to-jsonl> --secret <hmac-secret>
 ### Cyberpunk side (recommended starter layout)
 - Lua mod script:
   - `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/init.lua`
-- Optional JSONL emitter output file (example):
-  - `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl`
-
-Then point ingester at that file:
-```bash
-python -m middleware.file_ingest \
-  --file "/path/to/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" \
-  --secret "change-me"
-```
-
----
+- JSONL emitter output file (explicit path used above):
+  - `C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl`
 
 ## Event format expected by middleware
 Each event must be JSON with:
