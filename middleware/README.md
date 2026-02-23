@@ -29,6 +29,14 @@
 - Intensity and duration are hard-capped.
 - Emergency stop blocks event handling.
 
+## PiShock integration flow
+- Setup uses new PiShock discovery/auth APIs:
+  - `Auth/GetUserIfAPIKeyValid`
+  - `PiShock/GetShareCodesByOwner`
+  - `PiShock/GetShockersByShareIds`
+- Wizard stores selected target details in `middleware/config.yaml`.
+- Runtime resolves missing share code using the same discovery flow before actuation.
+
 ## Hard mode
 - Event mappings can set `mode: hard` to enable dynamic shock scaling from healing progression.
 - First hard-mode event starts state and returns `hard_mode_started`.

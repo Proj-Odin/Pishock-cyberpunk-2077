@@ -10,14 +10,31 @@ This repo provides a local safety-focused middleware service that accepts signed
 - Shock disabled by default unless explicitly enabled.
 - Optional JSONL file ingest utility for local event emitter workflows.
 - Hard mode shock ramp based on recovered HP after a large hit.
+- Guided setup wizard that uses PiShock's newer discovery API flow.
 
 ## Quick start
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
-cp middleware/config.example.yaml middleware/config.yaml
+python -m middleware.setup_wizard
 uvicorn middleware.app:app --reload
+```
+
+## PiShock setup (new discovery flow)
+The setup wizard walks through:
+1. Username + API key input.
+2. Resolve `UserID` via:
+   `https://auth.pishock.com/Auth/GetUserIfAPIKeyValid`
+3. Resolve available share IDs via:
+   `https://ps.pishock.com/PiShock/GetShareCodesByOwner`
+4. Resolve target shocker details via:
+   `https://ps.pishock.com/PiShock/GetShockersByShareIds`
+5. Write `middleware/config.yaml` with selected target and credentials.
+
+Run:
+```bash
+python -m middleware.setup_wizard
 ```
 
 ## Sign events
@@ -43,12 +60,6 @@ Hard mode logic:
 2. Every cooldown tick (default 500ms), intensity scales by recovered HP ratio:
    `intensity = round((healed_hp / max_hp) * hard_mode_max_intensity)`
 3. Tracking ends when `current_hp >= max_hp` (`hard_mode_completed`).
-
-Example from your scenario (400 HP, 300 damage, heal 100 HP/s, hard intensity cap 20):
-- 1s-2s: healed = 100 => ratio = 100/400 => intensity ~ 5
-- 2s-3s: healed = 200 => ratio = 200/400 => intensity ~ 10
-- 3s-4s: healed = 300 => ratio = 300/400 => intensity ~ 15
-- at 4s: full HP reached => hard mode stops
 
 ## Run tests
 ```bash
