@@ -48,6 +48,7 @@ python -m middleware.setup_wizard
 
 ### 5) Start the middleware
 ```bash
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
 uvicorn middleware.app:app --reload
 ```
 
@@ -192,6 +193,16 @@ For hard mode, include in `context`:
 - optional enemy fields: `enemy_count`, `enemies_nearby`, `enemy_wave`, `in_combat`
 
 ---
+=======
+## Quick start
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+python -m middleware.setup_wizard
+uvicorn middleware.app:app --reload
+```
+>>>>>>> main
 
 ## PiShock setup (python-pishock)
 The setup wizard asks for:
@@ -209,8 +220,12 @@ Run:
 python -m middleware.setup_wizard
 ```
 
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
 ## Sign events (direct HTTP mode)
 If you send directly to `/event`, sign request body with:
+=======
+## Sign events
+>>>>>>> main
 ```python
 import hmac, hashlib, json
 secret = b"change-me"
@@ -223,6 +238,14 @@ print(f"sha256={sig}")
 ## Hard mode behavior
 Configure an event mapping with `mode: hard` (example is `player_hard_mode_tick`).
 
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
+=======
+Expected event payload context keys:
+- `max_hp` (required)
+- `current_hp` (required on tick events)
+- `damage` (optional; used to seed initial damage window)
+
+>>>>>>> main
 Hard mode logic:
 1. First hard-mode event starts tracking a damage window (`damage` or `max_hp - current_hp`) and returns `hard_mode_started` without sending a shock.
 2. Every cooldown tick (default 500ms), intensity scales by recovered HP ratio:
@@ -231,6 +254,17 @@ Hard mode logic:
 
 ## Enemy-driven hard-mode scaling
 Hard mode reads `enemy_count`, `enemies_nearby`, or `enemy_wave` and applies:
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
+=======
+## Run tests
+```bash
+python -m pytest -q
+```
+
+
+## Enemy-driven hard-mode scaling
+Hard mode now reads enemy context fields (`enemy_count`, `enemies_nearby`, or `enemy_wave`) and applies:
+>>>>>>> main
 - Intensity multiplier scaling
 - Bonus pulses by threshold/tier with global anti-spam cooldown
 - Faster cadence in crowded fights with a minimum tick clamp
