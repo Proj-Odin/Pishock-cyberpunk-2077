@@ -11,7 +11,8 @@ This repo provides a local safety-focused middleware service that accepts signed
 - Optional JSONL file ingest utility for local event emitter workflows.
 - Hard mode shock ramp based on recovered HP after a large hit.
 - Streamlined PiShock integration via `python-pishock`.
-- Guided setup wizard for PiShock credentials.
+- Guided setup wizard for PiShock credentials (safe to rerun).
+- Enemy-driven hard-mode scaling options (intensity, extra pulses, cadence, duration tiers).
 
 ## Quick start
 ```bash
@@ -27,8 +28,9 @@ The setup wizard asks for:
 1. Username
 2. API key
 3. Share code
+4. Enemy-scaling controls for hard mode (multiplier, thresholds, cadence, duration)
 
-It then writes `middleware/config.yaml`.
+It can be run multiple times and preserves existing config values when you press Enter.
 
 Run:
 ```bash
@@ -63,3 +65,13 @@ Hard mode logic:
 ```bash
 python -m pytest -q
 ```
+
+
+## Enemy-driven hard-mode scaling
+Hard mode now reads enemy context fields (`enemy_count`, `enemies_nearby`, or `enemy_wave`) and applies:
+- Intensity multiplier scaling
+- Bonus pulses by threshold/tier with global anti-spam cooldown
+- Faster cadence in crowded fights with a minimum tick clamp
+- Duration stacking per enemy with caps
+- In-combat combo pulses
+- Optional logarithmic diminishing returns
