@@ -2,6 +2,15 @@
 
 This repo provides a local safety-focused middleware service that accepts signed game events and maps them to PiShock actions.
 
+## Quick review: hard-mode scaling status
+Yes — the current implementation includes the discussed hard-mode enemy scaling behavior:
+- Enemy-aware intensity scaling (`enemy_count`, `enemies_nearby`, `enemy_wave`)
+- Extra pulses from threshold + tier + in-combat combo bonus
+- Bonus pulse cooldown guard to prevent spam
+- Dynamic cadence reduction with minimum tick clamp
+- Duration stacking with capped max multiplier
+- Optional logarithmic diminishing returns
+
 ## Features
 - FastAPI service for receiving game events.
 - HMAC request verification (`X-Signature: sha256=<hex>`).
@@ -14,6 +23,31 @@ This repo provides a local safety-focused middleware service that accepts signed
 - Guided setup wizard for PiShock credentials (safe to rerun).
 - Enemy-driven hard-mode scaling options (intensity, extra pulses, cadence, duration tiers).
 
+## Install these files (project setup)
+### 1) Clone / place the repository
+```bash
+git clone <your-repo-url> Pishock-cyberpunk-2077
+cd Pishock-cyberpunk-2077
+```
+
+### 2) Create and activate a virtual environment
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 3) Install package + dependencies
+```bash
+pip install -e .[dev]
+```
+
+### 4) Generate/update local config (safe to run repeatedly)
+```bash
+python -m middleware.setup_wizard
+```
+
+### 5) Start the middleware
+```bash
 ## Quick start
 ```bash
 python -m venv .venv
@@ -63,6 +97,8 @@ Hard mode logic:
    `intensity = round((healed_hp / max_hp) * hard_mode_max_intensity)`
 3. Tracking ends when `current_hp >= max_hp` (`hard_mode_completed`).
 
+## Enemy-driven hard-mode scaling
+Hard mode reads `enemy_count`, `enemies_nearby`, or `enemy_wave` and applies:
 ## Run tests
 ```bash
 python -m pytest -q
@@ -77,3 +113,8 @@ Hard mode now reads enemy context fields (`enemy_count`, `enemies_nearby`, or `e
 - Duration stacking per enemy with caps
 - In-combat combo pulses
 - Optional logarithmic diminishing returns
+
+## Run tests
+```bash
+python -m pytest -q
+```
