@@ -48,6 +48,12 @@ python -m middleware.setup_wizard
 
 ### 5) Start the middleware
 ```bash
+## Quick start
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+python -m middleware.setup_wizard
 uvicorn middleware.app:app --reload
 ```
 
@@ -93,6 +99,14 @@ Hard mode logic:
 
 ## Enemy-driven hard-mode scaling
 Hard mode reads `enemy_count`, `enemies_nearby`, or `enemy_wave` and applies:
+## Run tests
+```bash
+python -m pytest -q
+```
+
+
+## Enemy-driven hard-mode scaling
+Hard mode now reads enemy context fields (`enemy_count`, `enemies_nearby`, or `enemy_wave`) and applies:
 - Intensity multiplier scaling
 - Bonus pulses by threshold/tier with global anti-spam cooldown
 - Faster cadence in crowded fights with a minimum tick clamp
