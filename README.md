@@ -48,6 +48,152 @@ python -m middleware.setup_wizard
 
 ### 5) Start the middleware
 ```bash
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
+uvicorn middleware.app:app --reload
+```
+
+---
+
+
+## Windows 10 quick start (for first-time Python users)
+If you've never used Python in terminal before, use **PowerShell**.
+
+### 0) Confirm Python works
+Open PowerShell and run:
+```powershell
+python --version
+```
+If that fails, install Python from python.org and re-open PowerShell.
+
+### 1) Open project folder
+```powershell
+cd "C:\path\to\Pishock-cyberpunk-2077"
+```
+
+### 2) Create virtual environment
+```powershell
+python -m venv .venv
+```
+
+### 3) Activate virtual environment
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+If PowerShell blocks script execution, run once in admin PowerShell:
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+Then activate again.
+
+### 4) Install dependencies
+```powershell
+pip install -e .[dev]
+```
+
+### 5) Run setup wizard
+```powershell
+python -m middleware.setup_wizard
+```
+The wizard now:
+- asks for PiShock fields,
+- asks for enemy scaling options,
+- validates/creates your JSON event file path.
+
+### 6) Start middleware
+```powershell
+uvicorn middleware.app:app --reload
+```
+Leave this terminal open.
+
+### 7) Start JSONL bridge (new terminal)
+Open a second PowerShell window, activate venv again, then:
+```powershell
+python -m middleware.file_ingest --file "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" --secret "change-me"
+```
+
+## How this connects to Cyberpunk 2077 (what you need to install)
+You need **two sides**:
+1. This local middleware (this repo)
+2. A game-side event emitter mod/script in Cyberpunk 2077
+
+### Cyberpunk checklist (explicit)
+1. Install **Cyber Engine Tweaks (CET)**.
+2. Create this folder:
+   `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/`
+3. Create this exact Lua file:
+   `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/init.lua`
+
+Use this starter Lua (hard-coded JSON path):
+```lua
+local events_path = "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl"
+
+local function append_event(json_line)
+  local f = io.open(events_path, "a")
+  if f then
+    f:write(json_line .. "\n")
+    f:close()
+  end
+end
+
+registerForEvent("onInit", function()
+  print("[pishock_bridge] loaded")
+end)
+
+-- Example periodic test event; replace with your real game hooks.
+registerForEvent("onUpdate", function()
+  -- Emit sparingly in real usage.
+end)
+```
+
+4. Use setup wizard to validate/create the same JSON file path:
+```bash
+python -m middleware.setup_wizard
+```
+The wizard now creates parent folders and `events.jsonl` if missing.
+
+5. Run file ingest bridge (separate terminal):
+```bash
+python -m middleware.file_ingest \
+  --file "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" \
+  --secret "change-me"
+```
+
+> You wrote “luna” earlier — likely you meant **Lua** (used by CET).
+
+---
+
+## File locations to use
+### Middleware side
+- Config file created by wizard: `middleware/config.yaml`
+- Example template: `middleware/config.example.yaml`
+
+### Cyberpunk side (recommended starter layout)
+- Lua mod script:
+  - `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/init.lua`
+- JSONL emitter output file (explicit path used above):
+  - `C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl`
+
+## Event format expected by middleware
+Each event must be JSON with:
+- `event_type`
+- `ts_ms`
+- `session_id`
+- `armed`
+- `context` (object)
+
+Example line in `events.jsonl`:
+```json
+{"event_type":"player_hard_mode_tick","ts_ms":1730000000000,"session_id":"run-1","armed":true,"context":{"max_hp":400,"current_hp":220,"damage":300,"enemy_count":4,"in_combat":true}}
+```
+
+For hard mode, include in `context`:
+- `max_hp`
+- `current_hp`
+- optional: `damage`
+- optional enemy fields: `enemy_count`, `enemies_nearby`, `enemy_wave`, `in_combat`
+
+---
+=======
 ## Quick start
 ```bash
 python -m venv .venv
@@ -56,6 +202,7 @@ pip install -e .[dev]
 python -m middleware.setup_wizard
 uvicorn middleware.app:app --reload
 ```
+>>>>>>> main
 
 ## PiShock setup (python-pishock)
 The setup wizard asks for:
@@ -73,7 +220,12 @@ Run:
 python -m middleware.setup_wizard
 ```
 
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
+## Sign events (direct HTTP mode)
+If you send directly to `/event`, sign request body with:
+=======
 ## Sign events
+>>>>>>> main
 ```python
 import hmac, hashlib, json
 secret = b"change-me"
@@ -86,11 +238,14 @@ print(f"sha256={sig}")
 ## Hard mode behavior
 Configure an event mapping with `mode: hard` (example is `player_hard_mode_tick`).
 
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
+=======
 Expected event payload context keys:
 - `max_hp` (required)
 - `current_hp` (required on tick events)
 - `damage` (optional; used to seed initial damage window)
 
+>>>>>>> main
 Hard mode logic:
 1. First hard-mode event starts tracking a damage window (`damage` or `max_hp - current_hp`) and returns `hard_mode_started` without sending a shock.
 2. Every cooldown tick (default 500ms), intensity scales by recovered HP ratio:
@@ -99,6 +254,8 @@ Hard mode logic:
 
 ## Enemy-driven hard-mode scaling
 Hard mode reads `enemy_count`, `enemies_nearby`, or `enemy_wave` and applies:
+<<<<<<< codex/recreate-chat-work-from-provided-link-2uoaut
+=======
 ## Run tests
 ```bash
 python -m pytest -q
@@ -107,6 +264,7 @@ python -m pytest -q
 
 ## Enemy-driven hard-mode scaling
 Hard mode now reads enemy context fields (`enemy_count`, `enemies_nearby`, or `enemy_wave`) and applies:
+>>>>>>> main
 - Intensity multiplier scaling
 - Bonus pulses by threshold/tier with global anti-spam cooldown
 - Faster cadence in crowded fights with a minimum tick clamp
