@@ -42,6 +42,7 @@ enemy_scaling:
     - min_enemies: 6
       max_enemies: null
       extra_pulses: 2
+  endpoint: https://do.pishock.com/api/apioperate
 
 event_mappings:
   player_damaged:

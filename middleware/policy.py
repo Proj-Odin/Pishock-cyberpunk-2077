@@ -6,6 +6,7 @@ from time import monotonic
 from typing import Any
 
 from middleware.config import AppConfig, EnemyTier, EventMapping
+from middleware.config import AppConfig, EventMapping
 
 
 MODE_TO_OP = {"shock": 0, "vibrate": 1, "beep": 2, "hard": 0}
@@ -58,6 +59,13 @@ class PolicyEngine:
         duration_s = max(1, round(duration_ms / 1000))
 
         return Decision(True, "ok", op=MODE_TO_OP[mapping.mode], intensity=intensity, duration_s=duration_s)
+        return Decision(
+            True,
+            "ok",
+            op=MODE_TO_OP[mapping.mode],
+            intensity=intensity,
+            duration_s=duration_s,
+        )
 
     def _consume_cooldown(self, session_id: str, event_type: str, cooldown_ms: int) -> bool:
         cooldown_key = (session_id, event_type)
@@ -130,6 +138,10 @@ class PolicyEngine:
             )
 
         if not self._consume_cooldown(session_id, "hard_mode", dynamic_cooldown_ms):
+            self._hard_mode_states[session_id] = HardModeState(max_hp=max_hp, initial_missing_hp=initial_missing_hp)
+            return Decision(False, "hard_mode_started")
+
+        if not self._consume_cooldown(session_id, "hard_mode", mapping.cooldown_ms):
             return Decision(False, "cooldown_active")
 
         if current_hp >= state.max_hp:
@@ -187,3 +199,8 @@ class PolicyEngine:
             bonus_intensity_ratio=enemy_cfg.bonus_pulse_intensity_ratio,
             pulse_spacing_ms=enemy_cfg.pulse_spacing_ms,
         )
+        intensity = max(1, round(ratio * configured_max))
+        duration_ms = max(100, min(mapping.duration_ms, self.config.max_duration_ms))
+        duration_s = max(1, round(duration_ms / 1000))
+
+        return Decision(True, "ok", op=MODE_TO_OP[mapping.mode], intensity=intensity, duration_s=duration_s)
