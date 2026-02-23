@@ -2,6 +2,15 @@
 
 This repo provides a local safety-focused middleware service that accepts signed game events and maps them to PiShock actions.
 
+## Quick review: hard-mode scaling status
+Yes — the current implementation includes the discussed hard-mode enemy scaling behavior:
+- Enemy-aware intensity scaling (`enemy_count`, `enemies_nearby`, `enemy_wave`)
+- Extra pulses from threshold + tier + in-combat combo bonus
+- Bonus pulse cooldown guard to prevent spam
+- Dynamic cadence reduction with minimum tick clamp
+- Duration stacking with capped max multiplier
+- Optional logarithmic diminishing returns
+
 ## Features
 - FastAPI service for receiving game events.
 - HMAC request verification (`X-Signature: sha256=<hex>`).
@@ -10,14 +19,58 @@ This repo provides a local safety-focused middleware service that accepts signed
 - Shock disabled by default unless explicitly enabled.
 - Optional JSONL file ingest utility for local event emitter workflows.
 - Hard mode shock ramp based on recovered HP after a large hit.
+- Streamlined PiShock integration via `python-pishock`.
+- Guided setup wizard for PiShock credentials (safe to rerun).
+- Enemy-driven hard-mode scaling options (intensity, extra pulses, cadence, duration tiers).
 
+## Install these files (project setup)
+### 1) Clone / place the repository
+```bash
+git clone <your-repo-url> Pishock-cyberpunk-2077
+cd Pishock-cyberpunk-2077
+```
+
+### 2) Create and activate a virtual environment
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 3) Install package + dependencies
+```bash
+pip install -e .[dev]
+```
+
+### 4) Generate/update local config (safe to run repeatedly)
+```bash
+python -m middleware.setup_wizard
+```
+
+### 5) Start the middleware
+```bash
 ## Quick start
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
-cp middleware/config.example.yaml middleware/config.yaml
+python -m middleware.setup_wizard
 uvicorn middleware.app:app --reload
+```
+
+## PiShock setup (python-pishock)
+The setup wizard asks for:
+1. Username
+2. API key
+3. Share code
+4. Granular enemy-scaling controls (multiplier, diminishing returns, thresholds, tiers, cadence, duration, combo pulses, spacing)
+
+It can be run multiple times and preserves existing config values when you press Enter.
+
+Defaults are tuned for a stronger hard-mode feel (more extra pulses in larger fights).
+
+Run:
+```bash
+python -m middleware.setup_wizard
 ```
 
 ## Sign events
@@ -44,11 +97,22 @@ Hard mode logic:
    `intensity = round((healed_hp / max_hp) * hard_mode_max_intensity)`
 3. Tracking ends when `current_hp >= max_hp` (`hard_mode_completed`).
 
-Example from your scenario (400 HP, 300 damage, heal 100 HP/s, hard intensity cap 20):
-- 1s-2s: healed = 100 => ratio = 100/400 => intensity ~ 5
-- 2s-3s: healed = 200 => ratio = 200/400 => intensity ~ 10
-- 3s-4s: healed = 300 => ratio = 300/400 => intensity ~ 15
-- at 4s: full HP reached => hard mode stops
+## Enemy-driven hard-mode scaling
+Hard mode reads `enemy_count`, `enemies_nearby`, or `enemy_wave` and applies:
+## Run tests
+```bash
+python -m pytest -q
+```
+
+
+## Enemy-driven hard-mode scaling
+Hard mode now reads enemy context fields (`enemy_count`, `enemies_nearby`, or `enemy_wave`) and applies:
+- Intensity multiplier scaling
+- Bonus pulses by threshold/tier with global anti-spam cooldown
+- Faster cadence in crowded fights with a minimum tick clamp
+- Duration stacking per enemy with caps
+- In-combat combo pulses
+- Optional logarithmic diminishing returns
 
 ## Run tests
 ```bash
