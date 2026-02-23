@@ -20,14 +20,14 @@ pishock:
 
 enemy_scaling:
   enabled: true
-  intensity_per_enemy: 0.1
-  use_logarithmic_intensity: true
-  bonus_threshold: 3
-  bonus_pulse_intensity_ratio: 0.5
-  bonus_global_cooldown_ms: 1200
+  intensity_per_enemy: 0.12
+  use_logarithmic_intensity: false
+  bonus_threshold: 2
+  bonus_pulse_intensity_ratio: 0.6
+  bonus_global_cooldown_ms: 700
   min_tick_ms: 250
   tick_reduction_per_enemy_ms: 100
-  duration_per_enemy_ms: 100
+  duration_per_enemy_ms: 120
   max_duration_multiplier: 2.0
   combat_combo_enabled: true
   combat_combo_min_enemies: 2
@@ -38,12 +38,10 @@ enemy_scaling:
       extra_pulses: 0
     - min_enemies: 3
       max_enemies: 5
-      extra_pulses: 1
+      extra_pulses: 2
     - min_enemies: 6
       max_enemies: null
-      extra_pulses: 2
-  endpoint: https://do.pishock.com/api/apioperate
-
+      extra_pulses: 3
 event_mappings:
   player_damaged:
     mode: vibrate

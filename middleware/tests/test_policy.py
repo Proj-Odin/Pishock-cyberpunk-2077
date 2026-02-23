@@ -1,5 +1,4 @@
 from middleware.config import AppConfig, EnemyScalingConfig, EnemyTier, EventMapping
-from middleware.config import AppConfig, EventMapping
 from middleware.policy import PolicyEngine
 
 
@@ -35,8 +34,6 @@ def build_config(allow_shock: bool = False) -> AppConfig:
                 EnemyTier(min_enemies=6, max_enemies=None, extra_pulses=2),
             ],
         ),
-            "player_hard_mode_tick": EventMapping(mode="hard", intensity=20, duration_ms=500, cooldown_ms=0),
-        },
     )
 
 
@@ -75,7 +72,6 @@ def test_hard_mode_ramps_with_healing() -> None:
         "player_hard_mode_tick",
         armed=True,
         context={"max_hp": 400, "current_hp": 200, "enemy_count": 0},
-        context={"max_hp": 400, "current_hp": 200},
     )
     assert second_1.allowed
     assert second_1.intensity == 5
@@ -94,7 +90,7 @@ def test_enemy_scaling_bonus_and_duration() -> None:
     assert decision.allowed
     assert decision.intensity == 8  # 5 * (1 + 0.1*6)
     assert decision.duration_s == 1
-    assert decision.bonus_pulses >= 2
+    assert decision.bonus_pulses >= 5
 
 
 def test_hard_mode_completion() -> None:
@@ -103,20 +99,3 @@ def test_hard_mode_completion() -> None:
     done = engine.evaluate("session-hard", "player_hard_mode_tick", armed=True, context={"max_hp": 400, "current_hp": 400})
     assert not done.allowed
     assert done.reason == "hard_mode_completed"
-    second_2 = engine.evaluate(
-        "session-hard",
-        "player_hard_mode_tick",
-        armed=True,
-        context={"max_hp": 400, "current_hp": 300},
-    )
-    assert second_2.allowed
-    assert second_2.intensity == 10
-
-    second_3 = engine.evaluate(
-        "session-hard",
-        "player_hard_mode_tick",
-        armed=True,
-        context={"max_hp": 400, "current_hp": 400},
-    )
-    assert not second_3.allowed
-    assert second_3.reason == "hard_mode_completed"

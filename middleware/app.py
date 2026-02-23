@@ -86,4 +86,3 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
         "bonus_pulses_sent": len(bonus_results),
         "bonus_results": bonus_results,
     }
-    return {"accepted": True, "reason": decision.reason, "pishock_status": status, "pishock_response": text}

@@ -6,7 +6,6 @@ from time import monotonic
 from typing import Any
 
 from middleware.config import AppConfig, EnemyTier, EventMapping
-from middleware.config import AppConfig, EventMapping
 
 
 MODE_TO_OP = {"shock": 0, "vibrate": 1, "beep": 2, "hard": 0}
@@ -59,13 +58,6 @@ class PolicyEngine:
         duration_s = max(1, round(duration_ms / 1000))
 
         return Decision(True, "ok", op=MODE_TO_OP[mapping.mode], intensity=intensity, duration_s=duration_s)
-        return Decision(
-            True,
-            "ok",
-            op=MODE_TO_OP[mapping.mode],
-            intensity=intensity,
-            duration_s=duration_s,
-        )
 
     def _consume_cooldown(self, session_id: str, event_type: str, cooldown_ms: int) -> bool:
         cooldown_key = (session_id, event_type)
@@ -138,10 +130,6 @@ class PolicyEngine:
             )
 
         if not self._consume_cooldown(session_id, "hard_mode", dynamic_cooldown_ms):
-            self._hard_mode_states[session_id] = HardModeState(max_hp=max_hp, initial_missing_hp=initial_missing_hp)
-            return Decision(False, "hard_mode_started")
-
-        if not self._consume_cooldown(session_id, "hard_mode", mapping.cooldown_ms):
             return Decision(False, "cooldown_active")
 
         if current_hp >= state.max_hp:
@@ -178,13 +166,15 @@ class PolicyEngine:
         if enemy_cfg.enabled and enemy_count > 0:
             threshold_bonus = enemy_count // max(1, enemy_cfg.bonus_threshold)
             tier_bonus = self._tier_bonus_pulses(enemy_count, enemy_cfg.tiers)
-            raw_bonus = max(threshold_bonus, tier_bonus)
+            combat_bonus = 1 if (
+                context.get("in_combat") and enemy_count >= enemy_cfg.combat_combo_min_enemies and enemy_cfg.combat_combo_enabled
+            ) else 0
 
             if enemy_cfg.use_logarithmic_intensity:
-                raw_bonus = min(raw_bonus, max(0, int(math.log(enemy_count + 1))))
+                threshold_bonus = max(0, int(math.log(enemy_count + 1)))
 
-            if context.get("in_combat") and enemy_count >= enemy_cfg.combat_combo_min_enemies and enemy_cfg.combat_combo_enabled:
-                raw_bonus = max(raw_bonus, 1)
+            raw_bonus = threshold_bonus + tier_bonus + combat_bonus
+            raw_bonus = max(0, min(raw_bonus, 6))
 
             if raw_bonus > 0 and self._consume_bonus_cooldown(session_id, "hard_mode_bonus", enemy_cfg.bonus_global_cooldown_ms):
                 bonus_pulses = raw_bonus
@@ -199,8 +189,3 @@ class PolicyEngine:
             bonus_intensity_ratio=enemy_cfg.bonus_pulse_intensity_ratio,
             pulse_spacing_ms=enemy_cfg.pulse_spacing_ms,
         )
-        intensity = max(1, round(ratio * configured_max))
-        duration_ms = max(100, min(mapping.duration_ms, self.config.max_duration_ms))
-        duration_s = max(1, round(duration_ms / 1000))
-
-        return Decision(True, "ok", op=MODE_TO_OP[mapping.mode], intensity=intensity, duration_s=duration_s)

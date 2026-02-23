@@ -35,6 +35,7 @@
   - `api_key`
   - `share_code`
 - Setup wizard collects these values and writes `middleware/config.yaml`.
+- Setup wizard supports granular hard-mode enemy scaling controls and is safe to rerun.
 
 ## Hard mode
 - Event mappings can set `mode: hard` to enable dynamic shock scaling from healing progression.
