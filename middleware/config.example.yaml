@@ -1,0 +1,70 @@
+server:
+  host: 127.0.0.1
+  port: 8000
+
+security:
+  hmac_secret: change-me
+
+policy:
+  allow_shock: false
+  max_intensity: 20
+  max_duration_ms: 1500
+  default_cooldown_ms: 2000
+
+pishock:
+  # Used by python-pishock
+  username: ""
+  api_key: ""
+  share_code: ""
+  name: CyberpunkBridge
+
+bridge:
+  # Path where your CET Lua script writes one JSON event per line.
+  event_jsonl_path: "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl"
+
+enemy_scaling:
+  enabled: true
+  intensity_per_enemy: 0.12
+  use_logarithmic_intensity: false
+  bonus_threshold: 2
+  bonus_pulse_intensity_ratio: 0.6
+  bonus_global_cooldown_ms: 700
+  min_tick_ms: 250
+  tick_reduction_per_enemy_ms: 100
+  duration_per_enemy_ms: 120
+  max_duration_multiplier: 2.0
+  combat_combo_enabled: true
+  combat_combo_min_enemies: 2
+  pulse_spacing_ms: 120
+  tiers:
+    - min_enemies: 1
+      max_enemies: 2
+      extra_pulses: 0
+    - min_enemies: 3
+      max_enemies: 5
+      extra_pulses: 2
+    - min_enemies: 6
+      max_enemies: null
+      extra_pulses: 3
+
+event_mappings:
+  player_damaged:
+    mode: vibrate
+    intensity: 12
+    duration_ms: 600
+    cooldown_ms: 2000
+  player_healed:
+    mode: beep
+    intensity: 1
+    duration_ms: 800
+    cooldown_ms: 1000
+  player_death:
+    mode: beep
+    intensity: 1
+    duration_ms: 1200
+    cooldown_ms: 5000
+  player_hard_mode_tick:
+    mode: hard
+    intensity: 20
+    duration_ms: 500
+    cooldown_ms: 500
