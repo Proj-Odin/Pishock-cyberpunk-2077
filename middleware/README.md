@@ -29,9 +29,21 @@
 - Intensity and duration are hard-capped.
 - Emergency stop blocks event handling.
 
+## PiShock integration flow
+- Runtime uses `python-pishock` with:
+  - `username`
+  - `api_key`
+  - `share_code`
+- Setup wizard collects these values and writes `middleware/config.yaml`.
+
 ## Hard mode
 - Event mappings can set `mode: hard` to enable dynamic shock scaling from healing progression.
 - First hard-mode event starts state and returns `hard_mode_started`.
 - Follow-up events should include `context.max_hp` and `context.current_hp`.
 - Output intensity is based on `healed_hp / max_hp` with the mapping intensity as the hard-mode max.
 - Returns `hard_mode_completed` and clears state once `current_hp >= max_hp`.
+
+
+## Enemy scaling in hard mode
+Configured under `enemy_scaling` in config. Uses event context keys `enemy_count`, `enemies_nearby`, or `enemy_wave`.
+Includes intensity multiplier, threshold/tier bonus pulses, cadence reduction, duration stacking, combat combo support, and diminishing returns.

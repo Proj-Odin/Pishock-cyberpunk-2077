@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -69,4 +70,20 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
         return {"accepted": False, "reason": decision.reason}
 
     status, text = await _client.operate(decision.op or 2, decision.intensity or 1, decision.duration_s or 1)
+
+    bonus_results: list[dict] = []
+    for _ in range(max(0, decision.bonus_pulses)):
+        await asyncio.sleep(max(0, decision.pulse_spacing_ms) / 1000)
+        bonus_intensity = max(1, round((decision.intensity or 1) * max(0.0, decision.bonus_intensity_ratio)))
+        b_status, b_text = await _client.operate(decision.op or 2, bonus_intensity, decision.duration_s or 1)
+        bonus_results.append({"status": b_status, "response": b_text, "intensity": bonus_intensity})
+
+    return {
+        "accepted": True,
+        "reason": decision.reason,
+        "pishock_status": status,
+        "pishock_response": text,
+        "bonus_pulses_sent": len(bonus_results),
+        "bonus_results": bonus_results,
+    }
     return {"accepted": True, "reason": decision.reason, "pishock_status": status, "pishock_response": text}
