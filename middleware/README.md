@@ -28,3 +28,10 @@
 - Cooldowns apply by `(session_id, event_type)`.
 - Intensity and duration are hard-capped.
 - Emergency stop blocks event handling.
+
+## Hard mode
+- Event mappings can set `mode: hard` to enable dynamic shock scaling from healing progression.
+- First hard-mode event starts state and returns `hard_mode_started`.
+- Follow-up events should include `context.max_hp` and `context.current_hp`.
+- Output intensity is based on `healed_hp / max_hp` with the mapping intensity as the hard-mode max.
+- Returns `hard_mode_completed` and clears state once `current_hp >= max_hp`.

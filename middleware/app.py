@@ -64,7 +64,7 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
 
     runtime_armed = _sessions_armed.get(parsed.session_id, False)
     armed = parsed.armed and runtime_armed
-    decision = _policy.evaluate(parsed.session_id, parsed.event_type, armed)
+    decision = _policy.evaluate(parsed.session_id, parsed.event_type, armed, parsed.context)
     if not decision.allowed:
         return {"accepted": False, "reason": decision.reason}
 

@@ -11,7 +11,8 @@ def build_config(allow_shock: bool = False) -> AppConfig:
         default_cooldown_ms=1000,
         pishock={},
         event_mappings={
-            "player_damaged": EventMapping(mode="shock", intensity=50, duration_ms=2500, cooldown_ms=500)
+            "player_damaged": EventMapping(mode="shock", intensity=50, duration_ms=2500, cooldown_ms=500),
+            "player_hard_mode_tick": EventMapping(mode="hard", intensity=20, duration_ms=500, cooldown_ms=0),
         },
     )
 
@@ -32,3 +33,43 @@ def test_caps_and_cooldown() -> None:
     second = engine.evaluate("s1", "player_damaged", armed=True)
     assert not second.allowed
     assert second.reason == "cooldown_active"
+
+
+def test_hard_mode_ramps_with_healing() -> None:
+    engine = PolicyEngine(build_config(allow_shock=True))
+
+    start = engine.evaluate(
+        "session-hard",
+        "player_hard_mode_tick",
+        armed=True,
+        context={"max_hp": 400, "current_hp": 100, "damage": 300},
+    )
+    assert not start.allowed
+    assert start.reason == "hard_mode_started"
+
+    second_1 = engine.evaluate(
+        "session-hard",
+        "player_hard_mode_tick",
+        armed=True,
+        context={"max_hp": 400, "current_hp": 200},
+    )
+    assert second_1.allowed
+    assert second_1.intensity == 5
+
+    second_2 = engine.evaluate(
+        "session-hard",
+        "player_hard_mode_tick",
+        armed=True,
+        context={"max_hp": 400, "current_hp": 300},
+    )
+    assert second_2.allowed
+    assert second_2.intensity == 10
+
+    second_3 = engine.evaluate(
+        "session-hard",
+        "player_hard_mode_tick",
+        armed=True,
+        context={"max_hp": 400, "current_hp": 400},
+    )
+    assert not second_3.allowed
+    assert second_3.reason == "hard_mode_completed"

@@ -34,3 +34,8 @@ event_mappings:
     intensity: 1
     duration_ms: 1200
     cooldown_ms: 5000
+  player_hard_mode_tick:
+    mode: hard
+    intensity: 20
+    duration_ms: 500
+    cooldown_ms: 500
