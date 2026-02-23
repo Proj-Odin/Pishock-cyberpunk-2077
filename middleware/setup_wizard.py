@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
 
 TEMPLATE = Path(__file__).with_name("config.example.yaml")
 TARGET = Path(__file__).with_name("config.yaml")
@@ -77,16 +78,7 @@ def _configure_tiers(current_tiers: list[dict]) -> list[dict]:
     return tiers
 
 
-def _validate_and_create_event_path(path_text: str) -> Path:
-    path = Path(path_text).expanduser()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch(exist_ok=True)
-    return path
-
-
 def main() -> None:
-    import yaml
-
     template = yaml.safe_load(TEMPLATE.read_text(encoding="utf-8"))
     existing = yaml.safe_load(TARGET.read_text(encoding="utf-8")) if TARGET.exists() else None
     config = _merge_defaults(template, existing)
@@ -102,18 +94,6 @@ def main() -> None:
 
     if not pishock_cfg["username"] or not pishock_cfg["api_key"] or not pishock_cfg["share_code"]:
         raise SystemExit("username, api_key, and share_code are required")
-
-    bridge_cfg = config.setdefault("bridge", {})
-    bridge_cfg["event_jsonl_path"] = _prompt(
-        str(
-            bridge_cfg.get(
-                "event_jsonl_path",
-                "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl",
-            )
-        ),
-        "CET JSONL event file path",
-    )
-    validated = _validate_and_create_event_path(bridge_cfg["event_jsonl_path"])
 
     enemy_cfg = config.setdefault("enemy_scaling", {})
     print("\nEnemy scaling setup (hard mode):")
@@ -158,7 +138,6 @@ def main() -> None:
 
     TARGET.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     print(f"\nSaved {TARGET}.")
-    print(f"Validated/created event file: {validated}")
     print("Re-run this wizard any time; existing values are preserved unless changed.")
 
 
