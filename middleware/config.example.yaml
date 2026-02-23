@@ -12,26 +12,11 @@ policy:
   default_cooldown_ms: 2000
 
 pishock:
-  # New discovery flow credentials
+  # Used by python-pishock
   username: ""
   api_key: ""
-  user_id: null
-
-  # Optional targeting hints. Setup wizard can auto-fill these.
-  share_id: null
-  target_shocker_name: ""
-
-  # Auto-resolved by setup wizard / client discovery fallback.
   share_code: ""
-
   name: CyberpunkBridge
-
-  # Discovery/auth endpoints from new PiShock API docs.
-  auth_base: https://auth.pishock.com
-  ps_base: https://ps.pishock.com
-
-  # Operate endpoint used after resolving shareCode.
-  operate_endpoint: https://do.pishock.com/api/apioperate
 
 event_mappings:
   player_damaged:

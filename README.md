@@ -10,7 +10,8 @@ This repo provides a local safety-focused middleware service that accepts signed
 - Shock disabled by default unless explicitly enabled.
 - Optional JSONL file ingest utility for local event emitter workflows.
 - Hard mode shock ramp based on recovered HP after a large hit.
-- Guided setup wizard that uses PiShock's newer discovery API flow.
+- Streamlined PiShock integration via `python-pishock`.
+- Guided setup wizard for PiShock credentials.
 
 ## Quick start
 ```bash
@@ -21,16 +22,13 @@ python -m middleware.setup_wizard
 uvicorn middleware.app:app --reload
 ```
 
-## PiShock setup (new discovery flow)
-The setup wizard walks through:
-1. Username + API key input.
-2. Resolve `UserID` via:
-   `https://auth.pishock.com/Auth/GetUserIfAPIKeyValid`
-3. Resolve available share IDs via:
-   `https://ps.pishock.com/PiShock/GetShareCodesByOwner`
-4. Resolve target shocker details via:
-   `https://ps.pishock.com/PiShock/GetShockersByShareIds`
-5. Write `middleware/config.yaml` with selected target and credentials.
+## PiShock setup (python-pishock)
+The setup wizard asks for:
+1. Username
+2. API key
+3. Share code
+
+It then writes `middleware/config.yaml`.
 
 Run:
 ```bash

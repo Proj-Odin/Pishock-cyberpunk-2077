@@ -5,50 +5,34 @@ import types
 from middleware.pishock import PiShockClient
 
 
-class FakeResponse:
-    def __init__(self, payload):
-        self._payload = payload
-        self.status_code = 200
-        self.text = "ok"
+class FakeShocker:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
 
-    def raise_for_status(self):
-        return None
+    def shock(self, duration: int, intensity: int):
+        return {"op": "shock", "duration": duration, "intensity": intensity}
 
-    def json(self):
-        return self._payload
+    def vibrate(self, duration: int, intensity: int):
+        return {"op": "vibrate", "duration": duration, "intensity": intensity}
 
-
-class FakeAsyncClient:
-    def __init__(self, timeout: float = 8.0):
-        self.timeout = timeout
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return None
-
-    async def get(self, url, params=None):
-        if "GetUserIfAPIKeyValid" in url:
-            return FakeResponse({"UserID": 321})
-        if "GetShareCodesByOwner" in url:
-            return FakeResponse({"owner": [111]})
-        if "GetShockersByShareIds" in url:
-            return FakeResponse({"owner": [{"shockerName": "alpha", "shareCode": "SCODE"}]})
-        raise AssertionError(f"Unexpected URL {url}")
-
-    async def post(self, url, json=None):
-        assert json["Code"] == "SCODE"
-        return FakeResponse({"ok": True})
+    def beep(self, duration: int, intensity: int):
+        return {"op": "beep", "duration": duration, "intensity": intensity}
 
 
-def test_pishock_client_resolves_share_code(monkeypatch):
-    fake_httpx = types.SimpleNamespace(AsyncClient=FakeAsyncClient)
-    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+def test_pishock_client_uses_python_library(monkeypatch):
+    fake_module = types.SimpleNamespace(Shocker=FakeShocker)
+    monkeypatch.setitem(sys.modules, "pishock", fake_module)
 
-    client = PiShockClient({"username": "u", "api_key": "k", "name": "n"})
+    client = PiShockClient({"username": "u", "api_key": "k", "share_code": "code", "name": "n"})
 
-    status, _ = asyncio.run(client.operate(op=1, intensity=10, duration_s=1))
+    status, text = asyncio.run(client.operate(op=1, intensity=10, duration_s=1))
     assert status == 200
-    assert client.user_id == 321
-    assert client.share_code == "SCODE"
+    assert "vibrate" in text
+
+
+def test_pishock_client_requires_credentials():
+    try:
+        PiShockClient({"username": "u", "api_key": "k", "share_code": ""})
+        raise AssertionError("expected runtime error")
+    except RuntimeError as exc:
+        assert str(exc) == "pishock_credentials_missing"
