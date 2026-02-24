@@ -125,6 +125,62 @@ Open a second PowerShell window, activate venv again, then:
 python -m middleware.file_ingest --file "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" --secret "change-me"
 ```
 
+## Windows repair: `pydantic_core` import error
+If you see this when starting middleware:
+
+```text
+ModuleNotFoundError: No module named 'pydantic_core._pydantic_core'
+```
+
+Your virtualenv has a broken/incomplete compiled dependency install. Use this recovery flow in **PowerShell** from repo root.
+
+### Fast repair in current `.venv`
+```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+.\.venv\Scripts\python.exe -m pip uninstall -y pydantic pydantic-core fastapi uvicorn
+.\.venv\Scripts\python.exe -m pip install --no-cache-dir fastapi uvicorn httpx pyyaml pishock pydantic pydantic-core
+```
+Then run middleware without reload first:
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn middleware.app:app
+```
+If that works, optionally retry with reload:
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn middleware.app:app --reload
+```
+
+### Clean rebuild (if fast repair fails)
+```powershell
+Get-Process python,pythonw -ErrorAction SilentlyContinue | Stop-Process -Force
+Remove-Item -Recurse -Force .\.venv
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+.\.venv\Scripts\python.exe -m pip install httpx fastapi uvicorn pyyaml pishock
+```
+
+Optional editable install after rebuild:
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e .[dev]
+```
+
+Sanity check that compiled `pydantic_core` files exist:
+```powershell
+Get-ChildItem .\.venv\Lib\site-packages\pydantic_core
+```
+
+### Start commands after repair (2 terminals)
+Terminal 1 (middleware):
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\python.exe -m uvicorn middleware.app:app
+```
+
+Terminal 2 (ingester):
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\python.exe -m middleware.file_ingest --file "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" --secret "change-me"
+```
+
 ## How this connects to Cyberpunk 2077 (what you need to install)
 You need **two sides**:
 1. This local middleware (this repo)
