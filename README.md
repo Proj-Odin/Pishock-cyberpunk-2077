@@ -295,8 +295,10 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/arm/cet-test"
 
 Terminal 3 — CET log ingester:
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\cet_log_ingest.py --log "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/scripting.log" --secret "change-me"
+.\.venv\Scripts\python.exe .\scripts\cet_log_ingest.py --log "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/scripting.log" --secret "change-me" --timeout 10
 ```
+
+If Terminal 3 shows `post failed: timed out`, middleware is unreachable/slow; verify Terminal 1 is running and retry with a higher `--timeout` value.
 
 Sanity check CET log path first:
 ```powershell

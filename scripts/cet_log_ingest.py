@@ -47,9 +47,10 @@ def main() -> None:
     parser.add_argument("--log", required=True, help="Path to CET scripting.log")
     parser.add_argument("--url", default="http://127.0.0.1:8000/event")
     parser.add_argument("--secret", required=True)
+    parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout seconds for middleware POST")
     args = parser.parse_args()
 
-    with httpx.Client(timeout=3.0) as client:
+    with httpx.Client(timeout=args.timeout) as client:
         for event in stream_cet_events(Path(args.log)):
             body = json.dumps(event, separators=(",", ":")).encode("utf-8")
             signature = compute_signature(args.secret, body)
@@ -61,7 +62,7 @@ def main() -> None:
                 )
                 print(response.status_code, response.text)
             except Exception as exc:
-                print(f"[cet_log_ingest] post failed: {exc}")
+                print(f"[cet_log_ingest] post failed: {exc} (check middleware is running on {args.url})")
 
 
 if __name__ == "__main__":

@@ -65,15 +65,19 @@ class PiShockClient:
             raise RuntimeError("python_pishock_shocker_init_failed") from exc
 
     def _operate_sync(self, op: int, intensity: int, duration_s: int) -> tuple[int, str]:
-        shocker = self._build_shocker()
+        try:
+            shocker = self._build_shocker()
 
-        if op == 0:
-            result = shocker.shock(duration=duration_s, intensity=intensity)
-        elif op == 1:
-            result = shocker.vibrate(duration=duration_s, intensity=intensity)
-        elif op == 2:
-            result = shocker.beep(duration=duration_s, intensity=intensity)
-        else:
-            raise RuntimeError("invalid_operation")
+            if op == 0:
+                result = shocker.shock(duration=duration_s, intensity=intensity)
+            elif op == 1:
+                result = shocker.vibrate(duration=duration_s, intensity=intensity)
+            elif op == 2:
+                result = shocker.beep(duration=duration_s, intensity=intensity)
+            else:
+                raise RuntimeError("invalid_operation")
 
-        return 200, str(result)
+            return 200, str(result)
+        except Exception as exc:
+            print(f"[pishock_client] operate failed: {type(exc).__name__}: {exc}")
+            raise
