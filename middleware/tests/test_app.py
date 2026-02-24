@@ -40,3 +40,22 @@ def test_event_invalid_signature() -> None:
     body = json.dumps(payload, separators=(",", ":")).encode()
     res = client.post('/event', content=body, headers={"x-signature": 'sha256=bad', "content-type": "application/json"})
     assert res.status_code == 401
+
+
+def test_event_invalid_payload_returns_422() -> None:
+    client = TestClient(app_module.app)
+    body = b'{"event_type":"powershell_write_test"}'
+    sig = compute_signature(app_module._config.hmac_secret, body)
+    res = client.post('/event', content=body, headers={"x-signature": sig, "content-type": "application/json"})
+    assert res.status_code == 422
+    data = res.json()
+    assert data["detail"]["error"] == "invalid_event"
+
+
+def test_event_invalid_json_returns_422() -> None:
+    client = TestClient(app_module.app)
+    body = b'{"event_type":'
+    sig = compute_signature(app_module._config.hmac_secret, body)
+    res = client.post('/event', content=body, headers={"x-signature": sig, "content-type": "application/json"})
+    assert res.status_code == 422
+    assert "invalid_json" in res.json()["detail"]

@@ -181,6 +181,46 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\python.exe -m middleware.file_ingest --file "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" --secret "change-me"
 ```
 
+## Middleware 500 on `/event`: schema validation and 422 behavior
+If ingester shows `500 Internal Server Error`, check middleware logs for missing required fields.
+`GameEvent` requires:
+- `event_type`
+- `ts_ms`
+- `session_id`
+
+A line like below is **invalid** and will be rejected:
+```json
+{"event_type":"powershell_write_test"}
+```
+
+Use a valid test line instead:
+```powershell
+Add-Content "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" '{"event_type":"manual_test","ts_ms":1700000000001,"session_id":"ps-test","armed":false,"context":{"damage":1}}'
+```
+
+Clear old bad lines before retesting:
+```powershell
+Set-Content "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl" ""
+```
+
+The middleware now returns **422** for invalid JSON or invalid event schema instead of surfacing a 500 traceback.
+
+## One-block Windows recovery + run checklist
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+(Get-Content .\pyproject.toml) -replace 'python-pishock>=0\.1\.0','pishock>=1.0.0' | Set-Content .\pyproject.toml
+Get-Process python,pythonw -ErrorAction SilentlyContinue | Stop-Process -Force
+if (Test-Path .\.venv) { Remove-Item -Recurse -Force .\.venv }
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+.\.venv\Scripts\python.exe -m pip install -e .[dev]
+$eventsPath = "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl"
+New-Item -ItemType Directory -Path (Split-Path $eventsPath) -Force | Out-Null
+if (-not (Test-Path $eventsPath)) { New-Item -ItemType File -Path $eventsPath -Force | Out-Null }
+Write-Host "Run middleware:"; Write-Host ".\.venv\Scripts\python.exe -m uvicorn middleware.app:app"
+Write-Host "Run ingester:"; Write-Host ".\.venv\Scripts\python.exe -m middleware.file_ingest --file `"$eventsPath`" --secret `"change-me`""
+```
+
 ## How this connects to Cyberpunk 2077 (what you need to install)
 You need **two sides**:
 1. This local middleware (this repo)

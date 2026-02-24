@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Request
+from pydantic import ValidationError
 
 from middleware.config import load_config
 from middleware.models import GameEvent
@@ -61,7 +62,15 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
     if not verify_signature(_config.hmac_secret, body, x_signature):
         raise HTTPException(status_code=401, detail="invalid_signature")
 
-    parsed = GameEvent.model_validate(json.loads(body))
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail=f"invalid_json: {exc.msg}") from exc
+
+    try:
+        parsed = GameEvent.model_validate(payload)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={"error": "invalid_event", "issues": exc.errors()}) from exc
 
     runtime_armed = _sessions_armed.get(parsed.session_id, False)
     armed = parsed.armed and runtime_armed
