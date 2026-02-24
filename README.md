@@ -233,29 +233,19 @@ You need **two sides**:
 3. Create this exact Lua file:
    `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/init.lua`
 
-Use this starter Lua (hard-coded JSON path + explicit error logging):
-```lua
-local events_path = "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl"
+Use the regenerated template in this repo:
+- Source template: `scripts/cet_init.lua`
+- Copy it to your CET mod path above as `init.lua`.
 
-local function append_event(json_line)
-  local f, err = io.open(events_path, "a")
-  if f then
-    f:write(json_line .. "\n")
-    f:close()
-    print("[pishock_bridge] wrote event")
-  else
-    print("[pishock_bridge] FAILED to open events file: " .. tostring(events_path))
-    print("[pishock_bridge] io.open error: " .. tostring(err))
-  end
-end
+Minimal inline Lua (same behavior as template):
+```lua
+local SESSION_ID = "cet-test"
+local function now_ms() return math.floor(os.time() * 1000) end
+local function emit_event_json(json_line) print("[PISHOCK_EVT] " .. json_line) end
 
 registerForEvent("onInit", function()
   print("[pishock_bridge] loaded")
-end)
-
--- Example periodic test event; replace with your real game hooks.
-registerForEvent("onUpdate", function()
-  -- Emit sparingly in real usage.
+  emit_event_json('{"event_type":"player_damaged","ts_ms":' .. tostring(now_ms()) .. ',"session_id":"' .. SESSION_ID .. '","armed":true,"context":{"damage":1}}')
 end)
 ```
 
@@ -316,6 +306,7 @@ Test-Path "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber
 The ingester script is self-contained and prepends repo root to `sys.path`, so no `PYTHONPATH` env variable is required.
 
 If you get `{"accepted":false,"reason":"event_not_mapped"}`, the event `event_type` is valid JSON but missing from `event_mappings` in `middleware/config.yaml`. Run `python -m middleware.setup_wizard` or add a mapping manually.
+If your CET log still shows `"event_type":"test_init"`, your game is still using an older `init.lua`; replace it with `scripts/cet_init.lua` and reload CET mods.
 
 ## File locations to use
 ### Middleware side
