@@ -20,24 +20,49 @@ class PiShockClient:
         return await asyncio.to_thread(self._operate_sync, op, intensity, duration_s)
 
     def _build_shocker(self):
+        # Preferred path for current `pishock` package
         try:
-            from pishock import Shocker
-        except Exception as exc:  # pragma: no cover - depends on runtime install
-            raise RuntimeError("python_pishock_not_installed") from exc
+            from pishock import PiShockAPI
 
-        # Support common constructor variants across python-pishock versions.
-        for kwargs in (
-            {"username": self.username, "api_key": self.api_key, "share_code": self.share_code, "name": self.name},
-            {"username": self.username, "api_key": self.api_key, "code": self.share_code, "name": self.name},
-            {"username": self.username, "api_key": self.api_key, "share_code": self.share_code},
-            {"username": self.username, "api_key": self.api_key, "code": self.share_code},
-        ):
+            api = PiShockAPI(self.username, self.api_key)
+            return api.shocker(self.share_code)
+        except Exception as exc:
+            # Fallback to legacy constructor variants (older wrappers / repo assumptions)
             try:
-                return Shocker(**kwargs)
-            except TypeError:
-                continue
+                from pishock import Shocker
+            except Exception as exc2:
+                raise RuntimeError("python_pishock_not_installed") from exc2
 
-        raise RuntimeError("python_pishock_shocker_init_failed")
+            for kwargs in (
+                {
+                    "username": self.username,
+                    "api_key": self.api_key,
+                    "share_code": self.share_code,
+                    "name": self.name,
+                },
+                {
+                    "username": self.username,
+                    "api_key": self.api_key,
+                    "code": self.share_code,
+                    "name": self.name,
+                },
+                {
+                    "username": self.username,
+                    "api_key": self.api_key,
+                    "share_code": self.share_code,
+                },
+                {
+                    "username": self.username,
+                    "api_key": self.api_key,
+                    "code": self.share_code,
+                },
+            ):
+                try:
+                    return Shocker(**kwargs)
+                except TypeError:
+                    continue
+
+            raise RuntimeError("python_pishock_shocker_init_failed") from exc
 
     def _operate_sync(self, op: int, intensity: int, duration_s: int) -> tuple[int, str]:
         shocker = self._build_shocker()
