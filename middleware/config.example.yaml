@@ -48,6 +48,11 @@ enemy_scaling:
       extra_pulses: 3
 
 event_mappings:
+  test_init:
+    mode: beep
+    intensity: 1
+    duration_ms: 300
+    cooldown_ms: 1000
   player_damaged:
     mode: vibrate
     intensity: 12

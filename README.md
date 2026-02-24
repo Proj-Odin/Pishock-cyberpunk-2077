@@ -287,7 +287,7 @@ end
 
 registerForEvent("onInit", function()
   print("[pishock_bridge] loaded")
-  emit_event_json('{"event_type":"test_init","ts_ms":1700000000000,"session_id":"cet-test","armed":true,"context":{"source":"onInit","damage":1}}')
+  emit_event_json('{"event_type":"player_damaged","ts_ms":1700000000000,"session_id":"cet-test","armed":true,"context":{"damage":1}}')
 end)
 ```
 
@@ -314,6 +314,8 @@ Test-Path "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber
 ```
 
 The ingester script is self-contained and prepends repo root to `sys.path`, so no `PYTHONPATH` env variable is required.
+
+If you get `{"accepted":false,"reason":"event_not_mapped"}`, the event `event_type` is valid JSON but missing from `event_mappings` in `middleware/config.yaml`. Run `python -m middleware.setup_wizard` or add a mapping manually.
 
 ## File locations to use
 ### Middleware side
