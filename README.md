@@ -276,6 +276,45 @@ python -m middleware.file_ingest \
 
 ---
 
+## CET log transport fallback (when Lua `io.open` cannot write files)
+If CET cannot append to `events.jsonl` even after permissions/path fixes, emit JSON through `print()` and ingest from `scripting.log`.
+
+Lua example (inside `init.lua`):
+```lua
+local function emit_event_json(json_line)
+  print("[PISHOCK_EVT] " .. json_line)
+end
+
+registerForEvent("onInit", function()
+  print("[pishock_bridge] loaded")
+  emit_event_json('{"event_type":"test_init","ts_ms":1700000000000,"session_id":"cet-test","armed":true,"context":{"source":"onInit","damage":1}}')
+end)
+```
+
+### Working order (3 terminals)
+Terminal 1 — middleware:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\python.exe -m uvicorn middleware.app:app
+```
+
+Terminal 2 — arm matching session id (`cet-test`):
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/arm/cet-test"
+```
+
+Terminal 3 — CET log ingester:
+```powershell
+.\.venv\Scripts\python.exe .\scripts\cet_log_ingest.py --log "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/scripting.log" --secret "change-me"
+```
+
+Sanity check CET log path first:
+```powershell
+Test-Path "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/scripting.log"
+```
+
+The ingester script is self-contained and prepends repo root to `sys.path`, so no `PYTHONPATH` env variable is required.
+
 ## File locations to use
 ### Middleware side
 - Config file created by wizard: `middleware/config.yaml`
