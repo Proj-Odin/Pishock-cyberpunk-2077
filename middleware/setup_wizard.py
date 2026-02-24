@@ -99,6 +99,7 @@ def main() -> None:
     pishock_cfg["api_key"] = _prompt(str(pishock_cfg.get("api_key", "")), "PiShock API key", secret=True)
     pishock_cfg["share_code"] = _prompt(str(pishock_cfg.get("share_code", "")), "PiShock share code")
     pishock_cfg["name"] = _prompt(str(pishock_cfg.get("name", "CyberpunkBridge")), "Sender name")
+    pishock_cfg["dry_run"] = _prompt_bool(bool(pishock_cfg.get("dry_run", False)), "Dry-run PiShock calls (no real device actuation)?")
 
     if not pishock_cfg["username"] or not pishock_cfg["api_key"] or not pishock_cfg["share_code"]:
         raise SystemExit("username, api_key, and share_code are required")

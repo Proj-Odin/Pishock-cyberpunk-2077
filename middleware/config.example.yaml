@@ -17,6 +17,7 @@ pishock:
   api_key: ""
   share_code: ""
   name: CyberpunkBridge
+  dry_run: false  # true = skip live PiShock calls and return simulated success
 
 bridge:
   # Path where your CET Lua script writes one JSON event per line.

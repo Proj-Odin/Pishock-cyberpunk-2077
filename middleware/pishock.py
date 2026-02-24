@@ -12,6 +12,7 @@ class PiShockClient:
         self.api_key = str(config.get("api_key", "")).strip()
         self.share_code = str(config.get("share_code", "")).strip()
         self.name = str(config.get("name", "CyberpunkBridge")).strip()
+        self.dry_run = bool(config.get("dry_run", False))
 
         if not self.username or not self.api_key or not self.share_code:
             raise RuntimeError("pishock_credentials_missing")
@@ -66,6 +67,9 @@ class PiShockClient:
 
     def _operate_sync(self, op: int, intensity: int, duration_s: int) -> tuple[int, str]:
         try:
+            if self.dry_run:
+                return 200, f"dry_run op={op} intensity={intensity} duration_s={duration_s}"
+
             shocker = self._build_shocker()
 
             if op == 0:

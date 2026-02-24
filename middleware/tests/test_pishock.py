@@ -36,3 +36,10 @@ def test_pishock_client_requires_credentials():
         raise AssertionError("expected runtime error")
     except RuntimeError as exc:
         assert str(exc) == "pishock_credentials_missing"
+
+
+def test_pishock_client_dry_run():
+    client = PiShockClient({"username": "u", "api_key": "k", "share_code": "code", "dry_run": True})
+    status, text = asyncio.run(client.operate(op=2, intensity=1, duration_s=1))
+    assert status == 200
+    assert "dry_run" in text

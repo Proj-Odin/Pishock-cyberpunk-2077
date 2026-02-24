@@ -300,6 +300,13 @@ Terminal 3 — CET log ingester:
 
 If Terminal 3 shows `post failed: timed out`, middleware is unreachable/slow; verify Terminal 1 is running and retry with a higher `--timeout` value.
 
+If timeout persists and you want to isolate mapping vs PiShock API latency, set `pishock.dry_run: true` in `middleware/config.yaml` (or via setup wizard) and retry. If timeouts disappear in dry-run, the delay is in live PiShock API/device calls.
+
+Direct PiShock API proof test (uses real creds):
+```powershell
+.\.venv\Scripts\python.exe -c "from pishock import PiShockAPI; api=PiShockAPI('REAL_USERNAME','REAL_API_KEY'); s=api.shocker('REAL_SHARE_CODE'); print(s.beep(duration=1,intensity=1))"
+```
+
 Sanity check CET log path first:
 ```powershell
 Test-Path "G:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/scripting.log"
