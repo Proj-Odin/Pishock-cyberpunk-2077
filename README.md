@@ -137,15 +137,19 @@ You need **two sides**:
 3. Create this exact Lua file:
    `Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/init.lua`
 
-Use this starter Lua (hard-coded JSON path):
+Use this starter Lua (hard-coded JSON path + explicit error logging):
 ```lua
 local events_path = "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl"
 
 local function append_event(json_line)
-  local f = io.open(events_path, "a")
+  local f, err = io.open(events_path, "a")
   if f then
     f:write(json_line .. "\n")
     f:close()
+    print("[pishock_bridge] wrote event")
+  else
+    print("[pishock_bridge] FAILED to open events file: " .. tostring(events_path))
+    print("[pishock_bridge] io.open error: " .. tostring(err))
   end
 end
 
@@ -187,6 +191,60 @@ python -m middleware.file_ingest \
 - JSONL emitter output file (explicit path used above):
   - `C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl`
 
+## Windows troubleshooting for `events.jsonl` write failures (run in order)
+If CET logs show it cannot write the events file, run these checks exactly in this order.
+
+### 1) Confirm `events.jsonl` is a file (not a directory)
+```powershell
+$path = "G:\SteamLibrary\steamapps\common\Cyberpunk 2077\bin\x64\plugins\cyber_engine_tweaks\mods\pishock_bridge\events.jsonl"
+Get-Item $path -Force | Format-List FullName,Attributes,Length,PSIsContainer,LastWriteTime
+```
+If `PSIsContainer : True`, it is a folder and must be removed/recreated as a file.
+
+### 2) Clear read-only and grant write permission
+```powershell
+attrib -R "G:\SteamLibrary\steamapps\common\Cyberpunk 2077\bin\x64\plugins\cyber_engine_tweaks\mods\pishock_bridge\events.jsonl"
+icacls "G:\SteamLibrary\steamapps\common\Cyberpunk 2077\bin\x64\plugins\cyber_engine_tweaks\mods\pishock_bridge" /grant "$env:USERNAME:(OI)(CI)(M)"
+icacls "G:\SteamLibrary\steamapps\common\Cyberpunk 2077\bin\x64\plugins\cyber_engine_tweaks\mods\pishock_bridge\events.jsonl" /grant "$env:USERNAME:(M)"
+```
+Then validate writes from PowerShell:
+```powershell
+Add-Content $path '{"event_type":"powershell_write_test"}'
+```
+
+### 3) Print the real Lua error string
+Use the exact `append_event` function from the Lua snippet above so CET logs include:
+- `Permission denied`
+- `No such file or directory`
+- `Invalid argument`
+
+### 4) Test with a relative CET path (recommended)
+For Windows path/ACL sanity testing, switch to:
+```lua
+local events_path = "plugins/cyber_engine_tweaks/mods/pishock_bridge/events.jsonl"
+```
+This avoids absolute-drive permission quirks and keeps I/O inside CET's folder tree.
+
+### 5) Test a definitely writable path
+If it still fails, isolate whether SteamLibrary permissions are the problem:
+```lua
+local events_path = "C:/Temp/pishock_bridge/events.jsonl"
+```
+```powershell
+New-Item -ItemType Directory -Path "C:\Temp\pishock_bridge" -Force | Out-Null
+New-Item -ItemType File -Path "C:\Temp\pishock_bridge\events.jsonl" -Force | Out-Null
+attrib -R "C:\Temp\pishock_bridge\events.jsonl"
+```
+If CET can write here but not under `G:\SteamLibrary\...`, your game folder path is blocked by permissions/security tooling.
+
+### Where to read CET logs
+- Mod-specific logs in your mod folder.
+- Global `scripting.log` under the CET path tree.
+
+Look for lines starting with:
+- `[pishock_bridge] FAILED to open events file:`
+- `[pishock_bridge] io.open error:`
+
 ## Event format expected by middleware
 Each event must be JSON with:
 - `event_type`
@@ -208,7 +266,7 @@ For hard mode, include in `context`:
 
 ---
 
-## PiShock setup (python-pishock)
+## PiShock setup (pishock)
 The setup wizard asks for:
 1. Username
 2. API key
