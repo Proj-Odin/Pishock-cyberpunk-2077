@@ -16,17 +16,32 @@ Local safety-focused middleware that accepts signed game events and maps them to
 ```bash
 bash scripts/setup_env.sh
 python -m middleware.setup_wizard
-uvicorn middleware.app:app --reload
+bash scripts/run_server.sh
 ```
 
 ## Windows Quick Start (PowerShell)
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/setup_env.ps1
 python -m middleware.setup_wizard
-uvicorn middleware.app:app --reload
+powershell -ExecutionPolicy Bypass -File scripts/run_server.ps1
 ```
 
 If setup fails while creating `.venv`, run from an unrestricted shell with a writable `TEMP` directory.
+
+## Send a Demo Event
+With the server running in one terminal:
+
+```bash
+bash scripts/demo_event.sh
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/demo_event.ps1
+```
+
+Optional examples:
+- `bash scripts/demo_event.sh --event-type player_hard_mode_tick --context-json '{"max_hp":400,"current_hp":250,"damage":150,"enemy_count":3,"in_combat":true}'`
+- `powershell -ExecutionPolicy Bypass -File scripts/demo_event.ps1 --skip-arm --session-id run-2`
 
 ## Setup Wizard
 Run:
@@ -130,3 +145,5 @@ Notes:
 - `middleware/policy.py` (safety and hard-mode decisions)
 - `middleware/pishock.py` (PiShock adapter)
 - `middleware/file_ingest.py` (JSONL bridge)
+- `middleware/demo_event.py` (one-shot signed demo event sender)
+- `scripts/run_server.ps1` / `scripts/run_server.sh` (one-command local server launch)
