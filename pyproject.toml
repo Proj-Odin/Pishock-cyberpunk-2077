@@ -22,3 +22,8 @@ middleware-setup-wizard = "middleware.setup_wizard:main"
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"
+testpaths = ["middleware/tests"]
+norecursedirs = [".git", ".venv", ".tmp", "__pycache__", "pytest-cache-files-*"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import zipfile
 
@@ -39,9 +40,23 @@ def _should_include(path: Path, repo_root: Path) -> bool:
     return True
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Create a zip export of the repository")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output zip path. Defaults to ../<repo-name>-export.zip",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = _parse_args()
     repo_root = Path(__file__).resolve().parents[1]
-    out = repo_root.parent / f"{repo_root.name}-export.zip"
+    out = args.output if args.output is not None else (repo_root.parent / f"{repo_root.name}-export.zip")
+    out = out.resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
 
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in repo_root.rglob("*"):

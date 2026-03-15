@@ -12,7 +12,8 @@ from middleware.security import compute_signature
 
 
 def stream_jsonl(path: Path, poll_interval_s: float = 0.2):
-    with path.open("r", encoding="utf-8") as handle:
+    # Accept JSONL files saved with or without a UTF-8 BOM.
+    with path.open("r", encoding="utf-8-sig") as handle:
         while True:
             line = handle.readline()
             if not line:

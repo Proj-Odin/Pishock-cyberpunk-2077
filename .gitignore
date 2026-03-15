@@ -1,0 +1,7 @@
+.tmp/
+.tmp_test_*/
+.venv/
+file-ingest-*/
+pytest-cache-files-*/
+__pycache__/
+*.py[cod]

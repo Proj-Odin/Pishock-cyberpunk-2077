@@ -18,3 +18,18 @@ def test_stream_jsonl_skips_invalid_line_and_yields_valid_json() -> None:
         generator.close()
     finally:
         shutil.rmtree(base, ignore_errors=True)
+
+
+def test_stream_jsonl_accepts_utf8_bom() -> None:
+    base = Path(".tmp_test_file_ingest") / str(uuid.uuid4())
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        source = base / "events.jsonl"
+        source.write_text('{"event_type":"player_hard_mode_tick"}\n', encoding="utf-8-sig")
+
+        generator = stream_jsonl(source, poll_interval_s=0.01)
+        event = next(generator)
+        assert event["event_type"] == "player_hard_mode_tick"
+        generator.close()
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
