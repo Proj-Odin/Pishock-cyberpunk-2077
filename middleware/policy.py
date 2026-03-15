@@ -49,6 +49,8 @@ class PolicyEngine:
         context = context or {}
         if mapping.mode == "hard":
             return self._evaluate_hard_mode(session_id, mapping, context)
+        if mapping.mode not in MODE_TO_OP:
+            return Decision(False, "invalid_mode")
 
         if not self._consume_cooldown(session_id, event_type, mapping.cooldown_ms):
             return Decision(False, "cooldown_active")
@@ -58,6 +60,13 @@ class PolicyEngine:
         duration_s = max(1, round(duration_ms / 1000))
 
         return Decision(True, "ok", op=MODE_TO_OP[mapping.mode], intensity=intensity, duration_s=duration_s)
+
+    @staticmethod
+    def _coerce_int(value: Any, default: int = 0) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
 
     def _consume_cooldown(self, session_id: str, event_type: str, cooldown_ms: int) -> bool:
         cooldown_key = (session_id, event_type)
@@ -99,9 +108,9 @@ class PolicyEngine:
         return bonus
 
     def _evaluate_hard_mode(self, session_id: str, mapping: EventMapping, context: dict[str, Any]) -> Decision:
-        max_hp = int(context.get("max_hp", 0))
-        current_hp = int(context.get("current_hp", 0))
-        damage = int(context.get("damage", 0))
+        max_hp = self._coerce_int(context.get("max_hp", 0))
+        current_hp = self._coerce_int(context.get("current_hp", 0))
+        damage = self._coerce_int(context.get("damage", 0))
         enemy_count = self._enemy_count(context)
 
         if max_hp <= 0:

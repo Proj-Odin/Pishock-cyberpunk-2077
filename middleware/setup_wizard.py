@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
-
 TEMPLATE = Path(__file__).with_name("config.example.yaml")
 TARGET = Path(__file__).with_name("config.yaml")
 
@@ -69,8 +67,16 @@ def _configure_tiers(current_tiers: list[dict]) -> list[dict]:
     print("Add tier rows. Example: 3-5 enemies => 1 extra pulse.")
     while True:
         min_enemies = _prompt_int(1, "Tier min enemies")
-        max_raw = _prompt("", "Tier max enemies (blank for no upper limit)")
-        max_enemies = int(max_raw) if max_raw else None
+        while True:
+            max_raw = _prompt("", "Tier max enemies (blank for no upper limit)")
+            if not max_raw:
+                max_enemies = None
+                break
+            try:
+                max_enemies = int(max_raw)
+                break
+            except ValueError:
+                print("Please enter a valid integer or leave blank.")
         extra_pulses = _prompt_int(1, "Tier extra pulses")
         tiers.append({"min_enemies": min_enemies, "max_enemies": max_enemies, "extra_pulses": extra_pulses})
         if not _prompt_bool(False, "Add another tier?"):
@@ -78,7 +84,20 @@ def _configure_tiers(current_tiers: list[dict]) -> list[dict]:
     return tiers
 
 
+def _validate_and_create_event_path(raw_path: str) -> Path:
+    target = Path(raw_path).expanduser()
+    if target.exists() and target.is_dir():
+        raise ValueError("Path points to a directory, not a file.")
+    if target.suffix.lower() != ".jsonl":
+        raise ValueError("Event path must end in .jsonl")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.touch(exist_ok=True)
+    return target
+
+
 def main() -> None:
+    import yaml
+
     template = yaml.safe_load(TEMPLATE.read_text(encoding="utf-8"))
     existing = yaml.safe_load(TARGET.read_text(encoding="utf-8")) if TARGET.exists() else None
     config = _merge_defaults(template, existing)
@@ -94,6 +113,20 @@ def main() -> None:
 
     if not pishock_cfg["username"] or not pishock_cfg["api_key"] or not pishock_cfg["share_code"]:
         raise SystemExit("username, api_key, and share_code are required")
+
+    ingest_cfg = config.setdefault("ingest", {})
+    default_event_file = str(ingest_cfg.get("event_file", ""))
+    while True:
+        event_file_raw = _prompt(default_event_file, "Event JSONL file path (optional, for middleware.file_ingest)")
+        if not event_file_raw:
+            ingest_cfg["event_file"] = ""
+            break
+        try:
+            event_file = _validate_and_create_event_path(event_file_raw)
+            ingest_cfg["event_file"] = str(event_file)
+            break
+        except ValueError as exc:
+            print(exc)
 
     enemy_cfg = config.setdefault("enemy_scaling", {})
     print("\nEnemy scaling setup (hard mode):")

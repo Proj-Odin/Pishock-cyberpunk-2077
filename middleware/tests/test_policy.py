@@ -99,3 +99,24 @@ def test_hard_mode_completion() -> None:
     done = engine.evaluate("session-hard", "player_hard_mode_tick", armed=True, context={"max_hp": 400, "current_hp": 400})
     assert not done.allowed
     assert done.reason == "hard_mode_completed"
+
+
+def test_hard_mode_invalid_numeric_context_is_rejected_not_crash() -> None:
+    engine = PolicyEngine(build_config(allow_shock=True))
+    decision = engine.evaluate(
+        "session-hard",
+        "player_hard_mode_tick",
+        armed=True,
+        context={"max_hp": "abc", "current_hp": "zzz", "damage": "bad"},
+    )
+    assert not decision.allowed
+    assert decision.reason == "hard_mode_missing_max_hp"
+
+
+def test_invalid_mode_is_rejected() -> None:
+    cfg = build_config(allow_shock=True)
+    cfg.event_mappings["bad_mode"] = EventMapping(mode="invalid", intensity=5, duration_ms=500, cooldown_ms=1000)
+    engine = PolicyEngine(cfg)
+    decision = engine.evaluate("s1", "bad_mode", armed=True)
+    assert not decision.allowed
+    assert decision.reason == "invalid_mode"

@@ -18,6 +18,10 @@ pishock:
   share_code: ""
   name: CyberpunkBridge
 
+ingest:
+  # Optional local JSONL path used by middleware.file_ingest
+  event_file: ""
+
 enemy_scaling:
   enabled: true
   intensity_per_enemy: 0.12
