@@ -14,21 +14,19 @@ Local safety-focused middleware that accepts signed game events and maps them to
 
 ## Quick Start
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+bash scripts/setup_env.sh
 python -m middleware.setup_wizard
 uvicorn middleware.app:app --reload
 ```
 
 ## Windows Quick Start (PowerShell)
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
+powershell -ExecutionPolicy Bypass -File scripts/setup_env.ps1
 python -m middleware.setup_wizard
 uvicorn middleware.app:app --reload
 ```
+
+If setup fails while creating `.venv`, run from an unrestricted shell with a writable `TEMP` directory.
 
 ## Setup Wizard
 Run:
@@ -53,6 +51,7 @@ python -m middleware.file_ingest \
 
 Notes:
 - Uses `http://127.0.0.1:8000/event` by default.
+- Accepts JSONL files saved with or without a UTF-8 BOM.
 - Keeps running on malformed lines and transient HTTP errors.
 
 ## Event Format
@@ -113,6 +112,16 @@ Enemy scaling supports:
 ```bash
 python -m pytest -q
 ```
+
+## Package Repo Export
+```bash
+python scripts/package_repo.py
+python scripts/package_repo.py --output ./exports/pishock-cyberpunk-2077.zip
+```
+
+Notes:
+- Default output is `../pishock-cyberpunk-2077-export.zip`.
+- `middleware/config.yaml` is excluded from exports.
 
 ## Important Files
 - `middleware/config.example.yaml` (template)
