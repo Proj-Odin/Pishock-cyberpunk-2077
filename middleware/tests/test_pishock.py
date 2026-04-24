@@ -2,7 +2,8 @@ import asyncio
 import sys
 import types
 
-from middleware.pishock import PiShockClient
+from middleware.pishock import BeepOnlyPiShockClient, DryRunPiShockClient, PiShockClient, build_pishock_client
+from middleware.runtime_mode import RuntimeMode
 
 
 class FakeShocker:
@@ -56,6 +57,15 @@ class FakePiShockAPI:
         return FakeShockerBeepNoIntensity(username=self.username, api_key=self.api_key, share_code=share_code, name=name)
 
 
+class FakeOperateClient:
+    def __init__(self):
+        self.calls: list[tuple[int, int, int]] = []
+
+    async def operate(self, op: int, intensity: int, duration_s: int) -> tuple[int, str]:
+        self.calls.append((op, intensity, duration_s))
+        return 200, f"fake op={op}"
+
+
 def test_pishock_client_uses_shocker_library(monkeypatch):
     fake_module = types.SimpleNamespace(Shocker=FakeShocker)
     monkeypatch.setitem(sys.modules, "pishock", fake_module)
@@ -102,3 +112,88 @@ def test_pishock_client_requires_credentials():
         raise AssertionError("expected runtime error")
     except RuntimeError as exc:
         assert str(exc) == "pishock_credentials_missing"
+
+
+def test_build_pishock_client_defaults_to_dry_run_without_credentials():
+    client = build_pishock_client({})
+    assert isinstance(client, DryRunPiShockClient)
+
+    status, text = asyncio.run(client.operate(op=1, intensity=10, duration_s=1))
+
+    assert status == 200
+    assert "dry_run" in text
+
+
+def test_build_pishock_client_requires_credentials_when_dry_run_disabled():
+    try:
+        build_pishock_client(
+            {"dry_run": False, "username": "", "api_key": "", "share_code": ""},
+            mode=RuntimeMode.LIVE,
+        )
+        raise AssertionError("expected runtime error")
+    except RuntimeError as exc:
+        assert str(exc) == "pishock_credentials_missing"
+
+
+def test_test_mode_never_calls_real_pishock_client():
+    client = build_pishock_client(
+        {"dry_run": False, "username": "", "api_key": "", "share_code": ""},
+        mode=RuntimeMode.TEST,
+    )
+    assert isinstance(client, DryRunPiShockClient)
+
+    status, text = asyncio.run(client.operate(op=0, intensity=10, duration_s=1))
+
+    assert status == 200
+    assert "dry_run" in text
+
+
+def test_live_mode_accepts_string_false_for_dry_run():
+    client = build_pishock_client(
+        {"dry_run": "false", "username": "u", "api_key": "k", "share_code": "code"},
+        mode=RuntimeMode.LIVE,
+    )
+    assert isinstance(client, PiShockClient)
+
+
+def test_build_pishock_client_wraps_real_client_in_beep_mode():
+    client = build_pishock_client(
+        {"dry_run": False, "username": "u", "api_key": "k", "share_code": "code", "name": "n"},
+        mode=RuntimeMode.BEEP,
+    )
+
+    assert isinstance(client, BeepOnlyPiShockClient)
+
+
+def test_beep_mode_allows_beep_with_fake_client():
+    fake = FakeOperateClient()
+    client = BeepOnlyPiShockClient(fake)
+    status, text = asyncio.run(client.operate(op=2, intensity=1, duration_s=1))
+
+    assert status == 200
+    assert text == "fake op=2"
+    assert fake.calls == [(2, 1, 1)]
+
+
+def test_beep_mode_blocks_vibrate_with_fake_client():
+    fake = FakeOperateClient()
+    client = BeepOnlyPiShockClient(fake)
+
+    try:
+        asyncio.run(client.operate(op=1, intensity=1, duration_s=1))
+        raise AssertionError("expected runtime error")
+    except RuntimeError as exc:
+        assert str(exc) == "runtime_mode_beep_blocks_non_beep_operation"
+    assert fake.calls == []
+
+
+def test_beep_mode_blocks_shock_with_fake_client():
+    fake = FakeOperateClient()
+    client = BeepOnlyPiShockClient(fake)
+
+    try:
+        asyncio.run(client.operate(op=0, intensity=1, duration_s=1))
+        raise AssertionError("expected runtime error")
+    except RuntimeError as exc:
+        assert str(exc) == "runtime_mode_beep_blocks_non_beep_operation"
+    assert fake.calls == []

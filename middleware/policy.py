@@ -9,6 +9,7 @@ from middleware.config import AppConfig, EnemyTier, EventMapping
 
 
 MODE_TO_OP = {"shock": 0, "vibrate": 1, "beep": 2, "hard": 0}
+MAX_BONUS_PULSES = 6
 
 
 @dataclass
@@ -57,7 +58,7 @@ class PolicyEngine:
 
         intensity = max(1, min(mapping.intensity, self.config.max_intensity))
         duration_ms = max(100, min(mapping.duration_ms, self.config.max_duration_ms))
-        duration_s = max(1, round(duration_ms / 1000))
+        duration_s = self._duration_seconds(duration_ms)
 
         return Decision(True, "ok", op=MODE_TO_OP[mapping.mode], intensity=intensity, duration_s=duration_s)
 
@@ -85,6 +86,10 @@ class PolicyEngine:
             return False
         self._bonus_cooldowns[cooldown_key] = now + (cooldown_ms / 1000)
         return True
+
+    def _duration_seconds(self, duration_ms: int) -> int:
+        max_seconds = max(1, self.config.max_duration_ms // 1000)
+        return max(1, min(duration_ms // 1000, max_seconds))
 
     def _enemy_count(self, context: dict[str, Any]) -> int:
         candidates = [context.get("enemy_count"), context.get("enemies_nearby"), context.get("enemy_wave")]
@@ -134,7 +139,7 @@ class PolicyEngine:
         dynamic_cooldown_ms = mapping.cooldown_ms
         if enemy_cfg.enabled:
             dynamic_cooldown_ms = max(
-                enemy_cfg.min_tick_ms,
+                max(0, enemy_cfg.min_tick_ms),
                 mapping.cooldown_ms - (enemy_cfg.tick_reduction_per_enemy_ms * enemy_count),
             )
 
@@ -161,15 +166,17 @@ class PolicyEngine:
 
         intensity = max(1, min(self.config.max_intensity, round(ratio * configured_max * multiplier)))
 
-        duration_ms = mapping.duration_ms
+        base_duration_ms = max(100, min(mapping.duration_ms, self.config.max_duration_ms))
+        duration_ms = base_duration_ms
         if enemy_cfg.enabled:
             duration_ms += enemy_cfg.duration_per_enemy_ms * enemy_count
-            duration_cap = int(self.config.max_duration_ms * enemy_cfg.max_duration_multiplier)
+            scaled_duration_cap = int(base_duration_ms * max(0.0, enemy_cfg.max_duration_multiplier))
+            duration_cap = min(self.config.max_duration_ms, max(100, scaled_duration_cap))
         else:
             duration_cap = self.config.max_duration_ms
 
         duration_ms = max(100, min(duration_ms, duration_cap))
-        duration_s = max(1, round(duration_ms / 1000))
+        duration_s = self._duration_seconds(duration_ms)
 
         bonus_pulses = 0
         if enemy_cfg.enabled and enemy_count > 0:
@@ -183,7 +190,7 @@ class PolicyEngine:
                 threshold_bonus = max(0, int(math.log(enemy_count + 1)))
 
             raw_bonus = threshold_bonus + tier_bonus + combat_bonus
-            raw_bonus = max(0, min(raw_bonus, 6))
+            raw_bonus = max(0, min(raw_bonus, MAX_BONUS_PULSES))
 
             if raw_bonus > 0 and self._consume_bonus_cooldown(session_id, "hard_mode_bonus", enemy_cfg.bonus_global_cooldown_ms):
                 bonus_pulses = raw_bonus
@@ -195,6 +202,6 @@ class PolicyEngine:
             intensity=intensity,
             duration_s=duration_s,
             bonus_pulses=bonus_pulses,
-            bonus_intensity_ratio=enemy_cfg.bonus_pulse_intensity_ratio,
+            bonus_intensity_ratio=max(0.0, min(enemy_cfg.bonus_pulse_intensity_ratio, 1.0)),
             pulse_spacing_ms=enemy_cfg.pulse_spacing_ms,
         )

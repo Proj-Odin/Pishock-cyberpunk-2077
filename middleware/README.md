@@ -24,6 +24,10 @@
 
 ## Safety model
 - Session must be armed both by API (`/arm/{session_id}`) and payload (`armed=true`).
+- Runtime mode `test` uses a mock PiShock client and sends no device/API operation.
+- Runtime mode `beep` allows only beep operations through the real adapter.
+- Runtime mode `live` requires explicit confirmation and still respects all policy controls.
+- Config dry-run mode (`pishock.dry_run=true`) keeps the mock PiShock client enabled in every runtime mode.
 - Shock mapping is blocked unless `policy.allow_shock=true`.
 - Cooldowns apply by `(session_id, event_type)`.
 - Intensity and duration are hard-capped.
@@ -34,6 +38,8 @@
   - `username`
   - `api_key`
   - `share_code`
+- Runtime uses the dry-run client by default. Set `pishock.dry_run=false` only after configuring credentials and testing safely.
+- Direct uvicorn startup reads `PISHOCK_RUNTIME_MODE` without prompting and defaults to `test`.
 - Setup wizard collects these values and writes `middleware/config.yaml`.
 - Setup wizard supports granular hard-mode enemy scaling controls and is safe to rerun.
 

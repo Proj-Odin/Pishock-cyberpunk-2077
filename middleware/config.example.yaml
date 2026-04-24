@@ -12,6 +12,7 @@ policy:
   default_cooldown_ms: 2000
 
 pishock:
+  dry_run: true
   # Used by python-pishock
   username: ""
   api_key: ""

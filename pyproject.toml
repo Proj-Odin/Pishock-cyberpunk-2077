@@ -19,6 +19,7 @@ dev = ["pytest>=8.0.0"]
 middleware-file-ingest = "middleware.file_ingest:main"
 middleware-setup-wizard = "middleware.setup_wizard:main"
 middleware-demo-event = "middleware.demo_event:main"
+middleware-run = "middleware.run:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
