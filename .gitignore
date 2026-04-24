@@ -3,5 +3,12 @@
 .venv/
 file-ingest-*/
 pytest-cache-files-*/
+.pytest_cache/
 __pycache__/
 *.py[cod]
+*.log
+logs/
+events.jsonl
+middleware/config.yaml
+.env
+.env.*

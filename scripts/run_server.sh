@@ -8,4 +8,5 @@ if [[ ! -x ".venv/bin/python" ]]; then
   bash scripts/setup_env.sh
 fi
 
-.venv/bin/python -m uvicorn middleware.app:app --host 127.0.0.1 --port 8000 --reload
+export PISHOCK_RUNTIME_MODE="${PISHOCK_RUNTIME_MODE:-test}"
+.venv/bin/python -m middleware.run

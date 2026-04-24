@@ -12,7 +12,10 @@ try {
         }
     }
 
-    & $venvPython -m uvicorn middleware.app:app --host 127.0.0.1 --port 8000 --reload
+    if (!$env:PISHOCK_RUNTIME_MODE) {
+        $env:PISHOCK_RUNTIME_MODE = "test"
+    }
+    & $venvPython -m middleware.run
 }
 finally {
     Pop-Location

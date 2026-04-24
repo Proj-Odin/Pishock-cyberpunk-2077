@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from middleware.config import _as_bool
+
 TEMPLATE = Path(__file__).with_name("config.example.yaml")
 TARGET = Path(__file__).with_name("config.yaml")
 
@@ -106,13 +108,23 @@ def main() -> None:
     print("Press Enter to keep current values shown in brackets.")
 
     pishock_cfg = config.setdefault("pishock", {})
+    pishock_cfg["dry_run"] = _prompt_bool(
+        _as_bool(pishock_cfg.get("dry_run", True), default=True),
+        "Use dry-run mock PiShock client?",
+    )
     pishock_cfg["username"] = _prompt(str(pishock_cfg.get("username", "")), "PiShock username")
     pishock_cfg["api_key"] = _prompt(str(pishock_cfg.get("api_key", "")), "PiShock API key", secret=True)
     pishock_cfg["share_code"] = _prompt(str(pishock_cfg.get("share_code", "")), "PiShock share code")
     pishock_cfg["name"] = _prompt(str(pishock_cfg.get("name", "CyberpunkBridge")), "Sender name")
 
-    if not pishock_cfg["username"] or not pishock_cfg["api_key"] or not pishock_cfg["share_code"]:
+    if not pishock_cfg["dry_run"] and (
+        not pishock_cfg["username"] or not pishock_cfg["api_key"] or not pishock_cfg["share_code"]
+    ):
         raise SystemExit("username, api_key, and share_code are required")
+    if pishock_cfg["dry_run"] and (
+        not pishock_cfg["username"] or not pishock_cfg["api_key"] or not pishock_cfg["share_code"]
+    ):
+        print("Dry-run is enabled; PiShock credentials can be added later before real device use.")
 
     ingest_cfg = config.setdefault("ingest", {})
     default_event_file = str(ingest_cfg.get("event_file", ""))
