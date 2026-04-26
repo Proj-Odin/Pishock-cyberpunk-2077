@@ -72,6 +72,11 @@ Confirm the app is listening:
 Invoke-RestMethod http://127.0.0.1:8000/health
 ```
 
+The health response includes `runtime_mode`, `dry_run_config`,
+`dry_run_effective`, `real_pishock_enabled`, and `pishock_client_mode`. In safe
+test mode, `dry_run_effective` should be `True` and `real_pishock_enabled`
+should be `False`, even if your local config has `pishock.dry_run: false`.
+
 ### Logs and Troubleshooting
 
 By default, middleware logs are written to:
@@ -107,11 +112,62 @@ Useful things to look for:
 - `runtime_mode_beep_blocks_non_beep_operation`
 - `pishock operation failed`
 
+If `pishock_operate_failed` happens in `test` mode, treat it as a bug: mapped
+events should use dry-run and should not call the real PiShock API or device.
+If it happens in `beep` or `live` mode, check credentials, share code, PiShock
+API availability, device status, and the sanitized log entry.
+
+### Beep mode error: `python_pishock_not_installed`
+
+Test mode does not require `python-pishock`, PiShock credentials, API access, or
+real hardware. Beep mode is different: it is a manual real API/device
+connectivity check, limited to beep operations only. If beep mode returns
+`error_code=python_pishock_not_installed`, install/check the PiShock Python
+dependency and verify your local PiShock config before retrying beep mode.
+
+Use test mode first:
+
+```powershell
+$env:PISHOCK_RUNTIME_MODE="test"
+python -m middleware.run
+```
+
+In another PowerShell window:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+python -m middleware.demo_event --event-type player_healed --context-json "{}"
+```
+
 Logs redact known sensitive fields such as `api_key`, `username`, `share_code`, `hmac_secret`, `secret`, `token`, `authorization`, and `x-signature`. Do not paste full logs publicly without checking them first.
 
 Before sharing logs, make a copy and search it for private values from your local `middleware\config.yaml`. The redaction filter is a safety net, not a substitute for review. Share only the smallest relevant excerpt, and remove session IDs or local file paths if you consider them private.
 
 ### Windows Troubleshooting
+
+Problem:
+
+```text
+event_status=200 event_response={"accepted":false,"reason":"pishock_operate_failed"}
+```
+
+First check:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health | ConvertTo-Json -Depth 5
+```
+
+If `runtime_mode` is `beep`, you are in manual beep/API mode. Install/check
+`python-pishock`, credentials, share code, API access, and hardware. For safe
+dry-run, restart with:
+
+```powershell
+$env:PISHOCK_RUNTIME_MODE="test"
+python -m middleware.run
+```
+
+If `runtime_mode` is `test`, this is a bug. Test mode should dry-run and never
+call PiShock.
 
 If PowerShell blocks venv activation:
 
@@ -241,7 +297,12 @@ Start the middleware in one PowerShell window, then in another:
 python -m middleware.demo_event --event-type player_healed --context-json "{}"
 ```
 
-The demo signs the event with the configured HMAC secret and arms `demo-run` unless `--skip-arm` is passed.
+The demo signs the event with the configured HMAC secret, checks `/health`,
+prints the runtime mode, and arms `demo-run` unless `--skip-arm` is passed.
+The base URL defaults to `http://127.0.0.1:8000`; override it with `--base-url`,
+the backward-compatible `--url`, or `PISHOCK_BASE_URL`. Connection failures are
+shown as friendly PowerShell instructions; add `--debug` when you need a
+traceback.
 
 ## JSONL Ingest
 
@@ -321,4 +382,27 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 python -m middleware.demo_event --event-type player_healed --context-json "{}"
 ```
 
-Expected result: `/health` returns `status: ok` and `runtime_mode: test`; the demo response includes `accepted: true` with a `dry_run` PiShock response.
+Expected result: `/health` returns `status: ok`, `runtime_mode: test`,
+`dry_run_effective: True`, and `real_pishock_enabled: False`; the demo response
+includes `accepted: true` with a `dry_run` PiShock response.
+
+## Beep Mode Smoke Test
+
+PowerShell window 1:
+
+```powershell
+$env:PISHOCK_RUNTIME_MODE="beep"
+python -m middleware.run
+```
+
+PowerShell window 2:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+python -m middleware.demo_event --event-type player_healed --context-json "{}"
+```
+
+Expected result with `pishock.dry_run: true`: dry-run success. Expected result
+with `pishock.dry_run: false`: only beep may reach the real adapter; missing
+dependency/config/API/device issues are reported safely, for example
+`error_code=python_pishock_not_installed`.

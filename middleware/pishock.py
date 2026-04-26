@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 import logging
 from typing import Any
 
+from middleware.logging_config import redact_text
 from middleware.runtime_mode import RuntimeMode, log_runtime_mode
 
 
@@ -16,6 +18,19 @@ OP_NAMES = {OP_SHOCK: "shock", OP_VIBRATE: "vibrate", OP_BEEP: "beep"}
 
 class RuntimeModeOperationBlocked(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class PiShockRuntimeStatus:
+    runtime_mode: RuntimeMode
+    dry_run_config: bool
+    dry_run_effective: bool
+    real_client_enabled: bool
+    pishock_client_mode: str
+
+    @property
+    def dry_run_active(self) -> bool:
+        return self.dry_run_effective
 
 
 def _config_bool(value: Any, default: bool = True) -> bool:
@@ -37,18 +52,23 @@ def _config_bool(value: Any, default: bool = True) -> bool:
 class DryRunPiShockClient:
     """Safe PiShock stand-in used by default and by tests."""
 
+    client_mode = "dry_run"
+
     async def operate(self, op: int, intensity: int, duration_s: int) -> tuple[int, str]:
+        op_name = OP_NAMES.get(op, f"unknown:{op}")
         logger.info(
             "dry-run operation op=%s intensity=%s duration_s=%s no_real_api=true",
-            OP_NAMES.get(op, f"unknown:{op}"),
+            op_name,
             intensity,
             duration_s,
         )
-        return 200, f"dry_run op={op} intensity={intensity} duration_s={duration_s}"
+        return 200, f"dry_run op={op_name} intensity={intensity} duration_s={duration_s}"
 
 
 class BeepOnlyPiShockClient:
     """PiShock wrapper that allows only beep operations through."""
+
+    client_mode = "beep_only"
 
     def __init__(self, real_client: Any):
         self.real_client = real_client
@@ -75,24 +95,58 @@ def _coerce_runtime_mode(mode: RuntimeMode | str | None) -> RuntimeMode:
     return RuntimeMode.TEST
 
 
+def configured_dry_run(config: dict[str, Any]) -> bool:
+    return _config_bool(config.get("dry_run", True), default=True)
+
+
+def effective_dry_run(config: dict[str, Any], mode: RuntimeMode | str | None = None) -> bool:
+    runtime_mode = _coerce_runtime_mode(mode)
+    return runtime_mode == RuntimeMode.TEST or configured_dry_run(config)
+
+
+def pishock_runtime_status(config: dict[str, Any], mode: RuntimeMode | str | None = None) -> PiShockRuntimeStatus:
+    runtime_mode = _coerce_runtime_mode(mode)
+    dry_run_config = configured_dry_run(config)
+    dry_run_effective = effective_dry_run(config, runtime_mode)
+    if dry_run_effective:
+        client_mode = "dry_run"
+    elif runtime_mode == RuntimeMode.BEEP:
+        client_mode = "beep_only"
+    else:
+        client_mode = "live"
+    return PiShockRuntimeStatus(
+        runtime_mode=runtime_mode,
+        dry_run_config=dry_run_config,
+        dry_run_effective=dry_run_effective,
+        real_client_enabled=not dry_run_effective and runtime_mode in {RuntimeMode.BEEP, RuntimeMode.LIVE},
+        pishock_client_mode=client_mode,
+    )
+
+
 def build_pishock_client(config: dict[str, Any], mode: RuntimeMode | str | None = None):
     runtime_mode = _coerce_runtime_mode(mode)
+    runtime_status = pishock_runtime_status(config, runtime_mode)
     log_runtime_mode(runtime_mode)
 
-    if runtime_mode == RuntimeMode.TEST or _config_bool(config.get("dry_run", True), default=True):
+    if runtime_status.dry_run_active:
         logger.info("pishock client mode=dry_run runtime_mode=%s", runtime_mode.value)
-        return DryRunPiShockClient()
+        client = DryRunPiShockClient()
+    else:
+        client = PiShockClient(config)
 
-    real_client = PiShockClient(config)
     if runtime_mode == RuntimeMode.BEEP:
-        logger.info("pishock client mode=beep_only")
-        return BeepOnlyPiShockClient(real_client)
+        logger.info("pishock client mode=beep_only real_client_enabled=%s", runtime_status.real_client_enabled)
+        return BeepOnlyPiShockClient(client)
+    if runtime_status.dry_run_active:
+        return client
     logger.info("pishock client mode=live")
-    return real_client
+    return client
 
 
 class PiShockClient:
     """Thin wrapper around python-pishock to keep middleware logic simple."""
+
+    client_mode = "live"
 
     def __init__(self, config: dict[str, Any]):
         self.username = str(config.get("username", "")).strip()
@@ -188,7 +242,12 @@ class PiShockClient:
             else:
                 raise RuntimeError("invalid_operation")
         except Exception as exc:
-            logger.error("pishock operation failed error_type=%s", type(exc).__name__)
+            logger.error(
+                "pishock operation failed op=%s error_type=%s error_detail=%s",
+                OP_NAMES.get(op, f"unknown:{op}"),
+                type(exc).__name__,
+                redact_text(str(exc)),
+            )
             raise
 
         return 200, str(result)
