@@ -8,6 +8,11 @@
 - `POST /resume`
 - `POST /event`
 
+`GET /health` includes `runtime_mode`, `dry_run_config`,
+`dry_run_effective`, `real_pishock_enabled`, and `pishock_client_mode` so you
+can confirm whether operations can reach a real PiShock client without exposing
+credentials.
+
 ## Event schema
 ```json
 {
@@ -42,6 +47,17 @@
 - Direct uvicorn startup reads `PISHOCK_RUNTIME_MODE` without prompting and defaults to `test`.
 - Setup wizard collects these values and writes `middleware/config.yaml`.
 - Setup wizard supports granular hard-mode enemy scaling controls and is safe to rerun.
+
+## Troubleshooting operation failures
+- If `pishock_operate_failed` happens in `test` mode, it is a bug: test mode
+  should route mapped operations to dry-run and never call the real PiShock API.
+- If `pishock_operate_failed` happens in `beep` or `live` mode, check PiShock
+  credentials, share code, API availability, device status, and sanitized logs.
+- If the operation error code is `python_pishock_not_installed`, beep/live mode
+  needs the PiShock Python dependency before it can use the real adapter. Test
+  mode does not require this dependency.
+- Logs redact `api_key`, `username`, `share_code`, `hmac_secret`, `token`,
+  `authorization`, and `x-signature`; do not add these values to issue reports.
 
 ## Hard mode
 - Event mappings can set `mode: hard` to enable dynamic shock scaling from healing progression.

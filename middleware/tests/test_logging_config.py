@@ -12,6 +12,7 @@ import middleware.app as app_module
 from middleware.file_ingest import stream_jsonl
 from middleware.logging_config import configure_logging, redact_text
 from middleware.pishock import BeepOnlyPiShockClient, DryRunPiShockClient
+from middleware.runtime_mode import RuntimeMode
 from middleware.security import compute_signature
 
 
@@ -166,6 +167,8 @@ def test_event_pishock_failure_response_does_not_expose_secret(monkeypatch) -> N
     try:
         configure_logging(log_path, force=True)
         app_module._sessions_armed["abc"] = True
+        monkeypatch.setattr(app_module._config, "pishock", {**app_module._config.pishock, "dry_run": False})
+        monkeypatch.setattr(app_module, "_runtime_mode", RuntimeMode.LIVE)
 
         async def fail_operate(*_args, **_kwargs):
             raise RuntimeError(f"share_code={secret_value}")

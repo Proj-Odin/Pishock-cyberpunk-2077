@@ -13,9 +13,16 @@ from pydantic import ValidationError
 from middleware.config import load_config
 from middleware.logging_config import configure_logging, redact_text
 from middleware.models import GameEvent
-from middleware.pishock import OP_NAMES, RuntimeModeOperationBlocked, build_pishock_client
+from middleware.pishock import (
+    OP_BEEP,
+    OP_NAMES,
+    DryRunPiShockClient,
+    RuntimeModeOperationBlocked,
+    build_pishock_client,
+    pishock_runtime_status,
+)
 from middleware.policy import PolicyEngine
-from middleware.runtime_mode import choose_runtime_mode
+from middleware.runtime_mode import RuntimeMode, choose_runtime_mode
 from middleware.security import verify_signature
 
 _log_path = configure_logging()
@@ -41,6 +48,8 @@ _policy = PolicyEngine(_config)
 
 
 class _UnavailablePiShockClient:
+    client_mode = "unavailable"
+
     def __init__(self, error: Exception):
         self._error_type = type(error).__name__
 
@@ -53,30 +62,91 @@ try:
 except Exception as exc:
     logger.error("pishock client unavailable error_type=%s", type(exc).__name__)
     _client = _UnavailablePiShockClient(exc)
+_dry_run_client = DryRunPiShockClient()
 
 _sessions_armed: dict[str, bool] = {}
 _emergency_stop = False
+PYTHON_PISHOCK_NOT_INSTALLED = "python_pishock_not_installed"
+
+
+def _pishock_error_code(exc: Exception) -> str:
+    if str(exc) == PYTHON_PISHOCK_NOT_INSTALLED:
+        return PYTHON_PISHOCK_NOT_INSTALLED
+    return "pishock_operate_failed"
 
 
 def _dry_run_enabled() -> bool:
-    return bool(_config.pishock.get("dry_run", True))
+    return pishock_runtime_status(_config.pishock, _runtime_mode).dry_run_effective
+
+
+def _real_pishock_client_enabled() -> bool:
+    return _pishock_client_mode() in {"beep_only", "live"}
+
+
+def _pishock_client_mode() -> str:
+    status = pishock_runtime_status(_config.pishock, _runtime_mode)
+    if not status.dry_run_effective:
+        return str(getattr(_client, "client_mode", status.pishock_client_mode))
+    return status.pishock_client_mode
+
+
+def _operation_client():
+    if _dry_run_enabled():
+        return _dry_run_client
+    return _client
+
+
+async def _operate_for_event(event_type: str, session_id: str, op: int, intensity: int, duration_s: int) -> tuple[int, str]:
+    op_name = OP_NAMES.get(op, f"unknown:{op}")
+    if _runtime_mode == RuntimeMode.BEEP and op != OP_BEEP:
+        logger.warning(
+            "runtime mode block mode=beep event_type=%s session_id=%s op=%s reason=runtime_mode_beep_blocks_non_beep_operation",
+            event_type,
+            session_id,
+            op_name,
+        )
+        raise RuntimeModeOperationBlocked("runtime_mode_beep_blocks_non_beep_operation")
+
+    if _dry_run_enabled():
+        logger.info(
+            "pishock dry-run dispatch event_type=%s session_id=%s op=%s intensity=%s duration_s=%s no_real_api=true",
+            event_type,
+            session_id,
+            op_name,
+            intensity,
+            duration_s,
+        )
+
+    status, text = await _operation_client().operate(op, intensity, duration_s)
+    return status, redact_text(text)
 
 
 def _log_startup_info() -> None:
+    status = pishock_runtime_status(_config.pishock, _runtime_mode)
     logger.info(
-        "app started runtime_mode=%s config_source=%s dry_run=%s log_file=%s",
+        "app started runtime_mode=%s config_source=%s dry_run_config=%s dry_run_effective=%s real_pishock_enabled=%s pishock_client_mode=%s log_file=%s",
         _runtime_mode.value,
         _config_source,
-        _dry_run_enabled(),
+        status.dry_run_config,
+        status.dry_run_effective,
+        _real_pishock_client_enabled(),
+        _pishock_client_mode(),
         _log_path,
     )
 
 
 @app.get("/health")
 def health() -> dict:
+    status = pishock_runtime_status(_config.pishock, _runtime_mode)
     return {
         "status": "ok",
         "runtime_mode": _runtime_mode.value,
+        "dry_run_config": status.dry_run_config,
+        "dry_run_effective": status.dry_run_effective,
+        "real_pishock_enabled": _real_pishock_client_enabled(),
+        "pishock_client_mode": _pishock_client_mode(),
+        "dry_run_active": status.dry_run_effective,
+        "real_pishock_client_enabled": _real_pishock_client_enabled(),
         "armed_sessions": sum(1 for v in _sessions_armed.values() if v),
         "emergency_stop": _emergency_stop,
     }
@@ -185,7 +255,7 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
     )
 
     try:
-        status, text = await _client.operate(op, intensity, duration_s)
+        status, text = await _operate_for_event(parsed.event_type, parsed.session_id, op, intensity, duration_s)
 
         bonus_results: list[dict] = []
         for _ in range(max(0, decision.bonus_pulses)):
@@ -194,7 +264,13 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
                 1,
                 min(_config.max_intensity, round(intensity * max(0.0, decision.bonus_intensity_ratio))),
             )
-            b_status, b_text = await _client.operate(op, bonus_intensity, duration_s)
+            b_status, b_text = await _operate_for_event(
+                parsed.event_type,
+                parsed.session_id,
+                op,
+                bonus_intensity,
+                duration_s,
+            )
             bonus_results.append({"status": b_status, "response": b_text, "intensity": bonus_intensity})
     except RuntimeModeOperationBlocked as exc:
         logger.warning(
@@ -210,6 +286,7 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
             "error_code": "runtime_mode_blocked",
         }
     except Exception as exc:
+        error_code = _pishock_error_code(exc)
         logger.error(
             "pishock operation failed event_type=%s session_id=%s op=%s error_type=%s error_detail=%s",
             parsed.event_type,
@@ -221,7 +298,7 @@ async def event(request: Request, x_signature: str = Header(default="")) -> dict
         return {
             "accepted": False,
             "reason": "pishock_operate_failed",
-            "error_code": "pishock_operate_failed",
+            "error_code": error_code,
         }
 
     logger.info(

@@ -2,7 +2,14 @@ import asyncio
 import sys
 import types
 
-from middleware.pishock import BeepOnlyPiShockClient, DryRunPiShockClient, PiShockClient, build_pishock_client
+import middleware.pishock as pishock_module
+from middleware.pishock import (
+    BeepOnlyPiShockClient,
+    DryRunPiShockClient,
+    PiShockClient,
+    build_pishock_client,
+    effective_dry_run,
+)
 from middleware.runtime_mode import RuntimeMode
 
 
@@ -117,6 +124,7 @@ def test_pishock_client_requires_credentials():
 def test_build_pishock_client_defaults_to_dry_run_without_credentials():
     client = build_pishock_client({})
     assert isinstance(client, DryRunPiShockClient)
+    assert client.client_mode == "dry_run"
 
     status, text = asyncio.run(client.operate(op=1, intensity=10, duration_s=1))
 
@@ -148,12 +156,49 @@ def test_test_mode_never_calls_real_pishock_client():
     assert "dry_run" in text
 
 
+def test_test_mode_never_instantiates_real_pishock_client(monkeypatch):
+    def fail_real_client(_config):
+        raise AssertionError("real client should not be instantiated in test mode")
+
+    monkeypatch.setattr(pishock_module, "PiShockClient", fail_real_client)
+
+    client = pishock_module.build_pishock_client(
+        {"dry_run": False, "username": "u", "api_key": "k", "share_code": "code"},
+        mode=RuntimeMode.TEST,
+    )
+
+    assert isinstance(client, DryRunPiShockClient)
+
+
+def test_dry_run_true_never_instantiates_real_pishock_client(monkeypatch):
+    def fail_real_client(_config):
+        raise AssertionError("real client should not be instantiated while dry_run is true")
+
+    monkeypatch.setattr(pishock_module, "PiShockClient", fail_real_client)
+
+    client = pishock_module.build_pishock_client(
+        {"dry_run": True, "username": "u", "api_key": "k", "share_code": "code"},
+        mode=RuntimeMode.LIVE,
+    )
+
+    assert isinstance(client, DryRunPiShockClient)
+
+
+def test_effective_dry_run_rules():
+    assert effective_dry_run({"dry_run": False}, RuntimeMode.TEST) is True
+    assert effective_dry_run({"dry_run": True}, RuntimeMode.BEEP) is True
+    assert effective_dry_run({"dry_run": False}, RuntimeMode.BEEP) is False
+    assert effective_dry_run({"dry_run": True}, RuntimeMode.LIVE) is True
+    assert effective_dry_run({"dry_run": False}, RuntimeMode.LIVE) is False
+
+
 def test_live_mode_accepts_string_false_for_dry_run():
     client = build_pishock_client(
         {"dry_run": "false", "username": "u", "api_key": "k", "share_code": "code"},
         mode=RuntimeMode.LIVE,
     )
     assert isinstance(client, PiShockClient)
+    assert client.client_mode == "live"
 
 
 def test_build_pishock_client_wraps_real_client_in_beep_mode():
@@ -163,6 +208,17 @@ def test_build_pishock_client_wraps_real_client_in_beep_mode():
     )
 
     assert isinstance(client, BeepOnlyPiShockClient)
+    assert client.client_mode == "beep_only"
+
+
+def test_build_pishock_client_wraps_dry_run_in_beep_mode():
+    client = build_pishock_client(
+        {"dry_run": True, "username": "", "api_key": "", "share_code": ""},
+        mode=RuntimeMode.BEEP,
+    )
+
+    assert isinstance(client, BeepOnlyPiShockClient)
+    assert isinstance(client.real_client, DryRunPiShockClient)
 
 
 def test_beep_mode_allows_beep_with_fake_client():
