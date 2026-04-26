@@ -9,44 +9,157 @@ Safe defaults:
 - `middleware/config.yaml` is ignored by git.
 - Tests never call the real PiShock API or hardware.
 
-## Windows PowerShell Setup
+## Windows PowerShell Quick Start
+
+Use two PowerShell windows:
+- Window 1 runs the middleware server and stays open.
+- Window 2 sends health checks and demo events.
+
+Run the setup steps first. After setup, activate the environment every time you
+open a new PowerShell window for this project.
+
+### Step 1: Clone the repo
 
 ```powershell
 git clone https://github.com/Proj-Odin/Pishock-cyberpunk-2077
 cd Pishock-cyberpunk-2077
+```
 
+If you already cloned the repo, just go to the project folder:
+
+```powershell
+cd path\to\Pishock-cyberpunk-2077
+```
+
+### Step 2: Create the Python virtual environment
+
+Do this once:
+
+```powershell
 py -m venv .venv
-.\.venv\Scripts\Activate.ps1
+```
 
+### Step 3: Activate the environment
+
+Do this every time you open a new PowerShell window for this project:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+After activation, your prompt usually starts with `(.venv)`.
+
+### Step 4: Install dependencies
+
+Do this after creating and activating the environment:
+
+```powershell
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+```
 
+### Step 5: Create your local config
+
+Do this once:
+
+```powershell
 copy middleware\config.example.yaml middleware\config.yaml
+```
 
+If `middleware\config.yaml` already exists, keep it and edit it locally instead
+of overwriting it.
+
+For first use, leave the safe defaults:
+- `pishock.dry_run: true`
+- `policy.allow_shock: false`
+
+### Step 6: Run tests
+
+Run this before starting the middleware:
+
+```powershell
 python -m pytest -q
 ```
 
-If `middleware\config.yaml` already exists, keep it and edit it locally instead of overwriting it.
+Expected result: all tests pass. Automated tests never call the real PiShock API
+or hardware.
 
-### Windows Startup
+### Step 7: Start the middleware in safe test mode
 
-Safe test mode, the default:
+Use PowerShell window 1. Keep this window open:
+
+```powershell
+cd path\to\Pishock-cyberpunk-2077
+.\.venv\Scripts\Activate.ps1
+$env:PISHOCK_RUNTIME_MODE="test"
+python -m middleware.run
+```
+
+Test mode is the safe default. It uses dry-run/mock behavior and does not call
+the real PiShock API or device.
+
+### Step 8: Verify health from a second PowerShell window
+
+Use PowerShell window 2:
+
+```powershell
+cd path\to\Pishock-cyberpunk-2077
+.\.venv\Scripts\Activate.ps1
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+Expected safe test-mode fields:
+
+```text
+runtime_mode: test
+dry_run_effective: True
+real_pishock_enabled: False
+pishock_client_mode: dry_run
+```
+
+### Step 9: Send a safe demo event
+
+Still in PowerShell window 2:
+
+```powershell
+python -m middleware.demo_event --event-type player_healed --context-json "{}"
+```
+
+Expected result:
+- The session arms successfully.
+- The event response has `accepted=true`.
+- The PiShock response contains `dry_run`.
+- No real PiShock API/device operation occurs.
+
+## Windows Runtime Modes
+
+### Safe Test Mode
+
+Use this for setup, development, and verification:
 
 ```powershell
 $env:PISHOCK_RUNTIME_MODE="test"
 python -m middleware.run
 ```
 
-Beep-only hardware/API check:
+### Beep-Only Manual Check
+
+Use this only after test mode works. Beep mode can call the real PiShock API and
+device if `pishock.dry_run: false` in `middleware\config.yaml`.
 
 ```powershell
 $env:PISHOCK_RUNTIME_MODE="beep"
 python -m middleware.run
 ```
 
-Beep mode allows only PiShock beep operations to reach the real adapter. It blocks vibrate and shock even if mappings request them. If `pishock.dry_run: true`, beep mode still uses the mock client.
+Beep mode allows only PiShock beep operations to reach the real adapter. It
+blocks vibrate and shock before any real client call. If `pishock.dry_run: true`,
+beep mode still uses the mock client.
 
-Live mode:
+### Live Mode
+
+Use live mode only after explicit confirmation and after checking your config.
+Live mode can use real configured PiShock behavior.
 
 ```powershell
 $env:PISHOCK_RUNTIME_MODE="live"
@@ -59,14 +172,17 @@ Live mode prompts for this exact confirmation before real configured behavior is
 I UNDERSTAND LIVE MODE
 ```
 
-Direct uvicorn safe mode:
+### Direct Uvicorn Safe Mode
+
+Most users should use `python -m middleware.run`. Direct uvicorn is mainly for
+development:
 
 ```powershell
 $env:PISHOCK_RUNTIME_MODE="test"
 python -m uvicorn middleware.app:app --reload
 ```
 
-Confirm the app is listening:
+Confirm the app is listening from another PowerShell window:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/health
@@ -301,8 +417,7 @@ The demo signs the event with the configured HMAC secret, checks `/health`,
 prints the runtime mode, and arms `demo-run` unless `--skip-arm` is passed.
 The base URL defaults to `http://127.0.0.1:8000`; override it with `--base-url`,
 the backward-compatible `--url`, or `PISHOCK_BASE_URL`. Connection failures are
-shown as friendly PowerShell instructions; add `--debug` when you need a
-traceback.
+shown as friendly PowerShell instructions.
 
 ## JSONL Ingest
 
